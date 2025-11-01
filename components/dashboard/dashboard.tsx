@@ -13,7 +13,7 @@ import type { ExportData } from "@/lib/export"
 
 export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [selectedCompany, setSelectedCompany] = useState<string>("Acme Corp")
+  const [selectedCompany, setSelectedCompany] = useState<string>("Interwood")
   const [dateRange, setDateRange] = useState({
     start: new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split("T")[0],
     end: new Date().toISOString().split("T")[0],

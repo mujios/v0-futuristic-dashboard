@@ -33,7 +33,7 @@ function parseInsights(insightText: string): InsightItem[] {
   if (!insightText) return [];
 
   // Split the text block by the markdown header '## ' to separate sections
-  const tokens = insightText.trim().split(/##\s+/).map(s => s.trim()).filter(s => s.length > 0);
+  const tokens = insightText.trim().split(/##*\s+/).map(s => s.trim()).filter(s => s.length > 0);
   
   const results: InsightItem[] = [];
   let currentId = 1;

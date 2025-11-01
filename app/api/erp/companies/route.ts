@@ -4,7 +4,7 @@ export async function GET() {
   try {
     const client = await getERPClient()
     const data = await client.getCompanies()
-
+    console.log(data)
     // FIX: Ensure data is not undefined/null before sanitizing and returning.
     const sanitizedData = data === undefined || data === null ? {} : data;
 

@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 try {
     const client = await getERPClient()
     const data = await client.getCashFlow(company, startDate, endDate)
-
+    console.log(data)
     // FIX: Ensure data is not undefined/null before sanitizing and returning.
     const sanitizedData = data === undefined || data === null ? {} : data;
 

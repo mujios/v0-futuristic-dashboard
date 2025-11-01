@@ -1,3 +1,5 @@
+import { getFiscalYear } from "./utils";
+
 const API_TIMEOUT = 15000
 
 interface ERPResponse<T = any> {
@@ -89,11 +91,19 @@ export class ERPClient {
   }
 
   async getProfitAndLoss(company: string, startDate: string, endDate: string) {
+    const fiscalYear = getFiscalYear(startDate);
     try {
       return await this.runReport("Profit and Loss Statement", {
         company,
         period_start_date: startDate,
         period_end_date: endDate,
+        from_date: startDate,
+        to_date: endDate,
+        from_fiscal_year: fiscalYear,
+        to_fiscal_year: fiscalYear,
+        periodicity: "Monthly", 
+        accumulated_values: 0,
+        include_default_book_entries: 1,
       })
     } catch (error) {
       console.error("[v15] Profit & Loss fallback:", error)
@@ -102,11 +112,19 @@ export class ERPClient {
   }
 
   async getBalanceSheet(company: string, startDate: string, endDate: string) {
+    const fiscalYear = getFiscalYear(startDate);
     try {
       return await this.runReport("Balance Sheet", {
         company,
         period_start_date: startDate,
         period_end_date: endDate,
+        from_date: startDate,
+        to_date: endDate,
+        from_fiscal_year: fiscalYear,
+        to_fiscal_year: fiscalYear,
+        periodicity: "Monthly", 
+        accumulated_values: 0,
+        include_default_book_entries: 1,
       })
     } catch (error) {
       console.error("[v15] Balance Sheet fallback:", error)
@@ -115,11 +133,19 @@ export class ERPClient {
   }
 
   async getCashFlow(company: string, startDate: string, endDate: string) {
+    const fiscalYear = getFiscalYear(startDate);
     try {
       return await this.runReport("Cash Flow", {
         company,
         period_start_date: startDate,
         period_end_date: endDate,
+        from_date: startDate,
+        to_date: endDate,
+        from_fiscal_year: fiscalYear,
+        to_fiscal_year: fiscalYear,
+        periodicity: "Monthly", 
+        accumulated_values: 0,
+        include_default_book_entries: 1,
       })
     } catch (error) {
       console.error("[v15] Cash Flow fallback:", error)

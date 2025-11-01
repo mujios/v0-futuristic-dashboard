@@ -124,7 +124,7 @@ export default function InsightsPanel({ insights }: InsightsPanelProps) {
               if (trimmedLine.length === 0) return null; // Skip empty lines
               
               // Simple cleanup for markdown list items (optional: replace * or - with •)
-              const cleanedLine = trimmedLine.replace(/^[*•-]\s*/, '• ');              
+              let cleanedLine = trimmedLine.replace(/^[*•-]\s*/, '• ');              
               // FIX: Remove markdown bold markers (**, __)
               cleanedLine = cleanedLine.replace(/(\*\*|__)/g, '');
               

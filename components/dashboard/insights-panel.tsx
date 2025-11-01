@@ -33,7 +33,7 @@ function parseInsights(insightText: string): InsightItem[] {
   if (!insightText) return [];
 
   // Split the text block by the markdown header '## ' to separate sections
-  const tokens = insightText.trim().split(/##\/**\s+/).map(s => s.trim()).filter(s => s.length > 0);
+  const tokens = insightText.trim().split(/##\s+/).map(s => s.trim()).filter(s => s.length > 0);
   
   const results: InsightItem[] = [];
   let currentId = 1;
@@ -124,7 +124,9 @@ export default function InsightsPanel({ insights }: InsightsPanelProps) {
               if (trimmedLine.length === 0) return null; // Skip empty lines
               
               // Simple cleanup for markdown list items (optional: replace * or - with •)
-              const cleanedLine = trimmedLine.replace(/^[*•-]\s*/, '• ');
+              const cleanedLine = trimmedLine.replace(/^[*•-]\s*/, '• ');              
+              // FIX: Remove markdown bold markers (**, __)
+              cleanedLine = cleanedLine.replace(/(\*\*|__)/g, '');
               
               return <p key={index} className="text-sm opacity-75">{cleanedLine}</p>;
             });

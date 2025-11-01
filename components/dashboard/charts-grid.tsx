@@ -25,9 +25,31 @@ export default function ChartsGrid({ dateRange, company }: ChartsGridProps) {
     charts.forEach(async (chart) => {
       try {
         const data: any = await chart.fetcher(company, dateRange.start, dateRange.end)
-        // Extract numeric values from response for 3D chart
-        const values = Object.values(data?.message || {}).map((v: any) => Number(v) || 0)
-        setChartData((prev) => ({ ...prev, [chart.id]: values }))
+        let chartValues: number[] = []
+
+        if (chart.id === "pl" || chart.id === "balance" || chart.id === "cashflow") {
+          // 1. Logic for Financial Statements (P&L, Balance Sheet, Cash Flow)
+          // The data is nested under chart.data.datasets[0].values
+          const datasets = data?.chart?.data?.datasets
+          if (datasets?.length > 0) {
+            // Take the values from the first dataset (usually the main metric)
+            chartValues = datasets[0].values.map((v: any) => Number(v) || 0)
+          }
+        } else if (chart.id === "araging" || chart.id === "apaging") {
+          // 2. Logic for Aging Reports (Receivables/Payables)
+          // Extract the ranges from the final total row of the result array
+          const rawResults = data?.result;
+          const totalRow = rawResults?.[rawResults.length - 1]
+
+          if (Array.isArray(totalRow) && totalRow[0] === "Total") {
+            // Indices 11 to 15 represent range1 (0-30 days) to range5 (121-Above)
+            const rawRanges = totalRow.slice(11, 16) 
+            chartValues = rawRanges.map((v: any) => Number(v) || 0)
+          }
+        }
+
+        setChartData((prev) => ({ ...prev, [chart.id]: chartValues }))
+
       } catch (err) {
         console.error(`[v0] Failed to fetch ${chart.title}:`, err)
       }

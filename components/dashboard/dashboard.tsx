@@ -95,7 +95,7 @@ export default function Dashboard() {
           ) : (
             <div className="p-6 space-y-6">
               {/* Charts Grid */}
-              <ChartsGrid dateRange={dateRange} company={selectedCompany} chartData={data.chartData} />
+              <ChartsGrid dateRange={dateRange} company={selectedCompany} />
 
               {/* Insights Section */}
               <InsightsPanel insights={data.insights || ""} />

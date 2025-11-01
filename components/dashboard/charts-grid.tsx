@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Chart3D from "./chart-3d-placeholder.tsx"
 import { useEffect, useState } from "react"
-import { fetchProfitLoss, fetchBalanceSheet, fetchCashFlow, fetchReceivables, fetchPayables } from "@/lib/erp-client"
+import { fetchProfitLoss, fetchBalanceSheet, fetchCashFlow, fetchReceivables, fetchPayables } from "@/lib/api-client" 
 
 interface ChartsGridProps {
   dateRange: { start: string; end: string }

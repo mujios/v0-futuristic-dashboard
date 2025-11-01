@@ -87,7 +87,7 @@ export class ERPClient {
   private async runReport(reportName: string, filters: Record<string, any>) {
     const body = { report_name: reportName, filters }
     const response = await this.post("/method/frappe.desk.query_report.run", body)
-    console.log(resource)
+    console.log(responce)
     return response.data
   }
 

@@ -1,4 +1,4 @@
-import { getFiscalYear } from "./utils";
+import { getFiscalYear } from "./utils"
 
 const API_TIMEOUT = 15000
 
@@ -32,6 +32,7 @@ export class ERPClient {
       throw new Error("ERPNext credentials not configured")
     }
 
+    // Ensures we hit the correct ERPNext URL structure
     const url = endpoint.startsWith("/api") ? `${this.erpUrl}${endpoint}` : `${this.erpUrl}/api${endpoint}`
     const token = `Token ${this.apiKey}:${this.apiSecret}`
 
@@ -49,7 +50,7 @@ export class ERPClient {
         },
         signal: controller.signal,
       })
-      console.log(`Endpoint responce ${response}`)
+      console.log(`Endpoint response status: ${response.status}`)
       clearTimeout(timeout)
 
       if (!response.ok) {
@@ -87,8 +88,8 @@ export class ERPClient {
   private async runReport(reportName: string, filters: Record<string, any>) {
     const body = { report_name: reportName, filters }
     const response = await this.post("/method/frappe.desk.query_report.run", body)
-    console.log(response)
-    return response.data
+    // ERPNext reports return data in .data for success or .message for complex structures
+    return response?.message ?? response?.data ?? response
   }
 
   async getProfitAndLoss(company: string, startDate: string, endDate: string) {
@@ -102,7 +103,7 @@ export class ERPClient {
         to_date: endDate,
         from_fiscal_year: fiscalYear,
         to_fiscal_year: fiscalYear,
-        periodicity: "Monthly", 
+        periodicity: "Monthly", // Mandatory working filter
         accumulated_values: 0,
         include_default_book_entries: 1,
       })
@@ -123,7 +124,7 @@ export class ERPClient {
         to_date: endDate,
         from_fiscal_year: fiscalYear,
         to_fiscal_year: fiscalYear,
-        periodicity: "Monthly", 
+        periodicity: "Monthly", // Mandatory working filter
         accumulated_values: 0,
         include_default_book_entries: 1,
       })
@@ -144,7 +145,7 @@ export class ERPClient {
         to_date: endDate,
         from_fiscal_year: fiscalYear,
         to_fiscal_year: fiscalYear,
-        periodicity: "Monthly", 
+        periodicity: "Monthly", // Mandatory working filter
         accumulated_values: 0,
         include_default_book_entries: 1,
       })
@@ -182,12 +183,12 @@ export class ERPClient {
         ["GL Entry", "posting_date", "<=", endDate],
       ]),
     })
-    return await this.get(`/resource/GL Entry?${params}`)
+    return await this.get(`/resource/GL Entry?${params}`) 
   }
 
   private async getAccountsFallback(company: string) {
     const params = new URLSearchParams({
-      fields: JSON.stringify(["name", "account_type"]), // removed "balance" to prevent 417 error
+      fields: JSON.stringify(["name", "account_type"]), 
       filters: JSON.stringify([["Account", "company", "=", company]]),
     })
     return await this.get(`/resource/Account?${params}`)
@@ -203,7 +204,7 @@ export class ERPClient {
 
   private async getSalesInvoicesFallback(company: string) {
     const params = new URLSearchParams({
-      fields: JSON.stringify(["name", "customer"]), // removed "outstanding_amount" to prevent 417 Expectation Failed errors
+      fields: JSON.stringify(["name", "customer"]), 
       filters: JSON.stringify([["Sales Invoice", "company", "=", company]]),
     })
     return await this.get(`/resource/Sales Invoice?${params}`)
@@ -211,7 +212,7 @@ export class ERPClient {
 
   private async getPurchaseInvoicesFallback(company: string) {
     const params = new URLSearchParams({
-      fields: JSON.stringify(["name", "supplier"]), // removed "outstanding_amount" to prevent 417 Expectation Failed errors
+      fields: JSON.stringify(["name", "supplier"]), 
       filters: JSON.stringify([["Purchase Invoice", "company", "=", company]]),
     })
     return await this.get(`/resource/Purchase Invoice?${params}`)

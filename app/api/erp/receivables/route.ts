@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   try {
     const client = await getERPClient()
     const data = await client.getAccountsReceivable(company)
-    return Response.json(data)
+    return Response.json(JSON.parse(JSON.stringify(data)))
   } catch (error) {
     console.error("[v0] Receivables API error:", error)
     return Response.json({ error: "Failed to fetch receivables data" }, { status: 500 })

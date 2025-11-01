@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai"
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }) // Updated model reference
 
 interface FinancialData {
   profitAndLoss?: unknown
@@ -16,30 +16,40 @@ export async function generateFinancialInsights(data: FinancialData, company: st
     const dataContext = JSON.stringify(data, null, 2)
 
     const prompt = `
-You are a financial analyst AI assistant. Analyze the following ERPNext financial data for ${company} and provide:
+You are a financial analyst AI assistant. Analyze the following ERPNext financial data for ${company}.
 
-1. KEY FINANCIAL METRICS SUMMARY - Overview of profitability, liquidity, and solvency
-2. TREND ANALYSIS - Important changes compared to recent periods
-3. RISK ALERTS - Any concerning financial indicators or red flags
-4. OPPORTUNITIES - Recommendations for improvement
-5. ACTIONABLE INSIGHTS - Specific next steps for management
+Provide a comprehensive financial analysis structured EXACTLY into the following five sections using markdown headers (##).
 
 Financial Data:
 ${dataContext}
 
-Format your response in clear sections with bullet points where appropriate. Be concise but comprehensive. Focus on insights that drive business decisions.
+## KEY FINANCIAL METRICS SUMMARY
+Provide a concise, 1-2 paragraph overview of profitability, liquidity, and solvency.
+
+## RISK ALERTS
+Provide 1-3 concise bullet points listing any concerning financial indicators or red flags.
+
+## OPPORTUNITIES
+Provide 1-3 concise bullet points listing high-level recommendations for improvement.
+
+## TREND ANALYSIS
+Provide 1-3 concise bullet points identifying important quantitative or qualitative changes compared to recent periods.
+
+## ACTIONABLE INSIGHTS
+Provide 1-3 specific next steps for management.
 `
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
-        temperature: 0.7,
+        temperature: 0.6, 
         maxOutputTokens: 1000,
       },
     })
 
     const text = result.response.text()
-    return text
+    // Return the full text, letting the client parse the headers (##)
+    return text.trim()
   } catch (error) {
     console.error("[v0] Gemini financial insights error:", error)
     throw new Error("Failed to generate insights")

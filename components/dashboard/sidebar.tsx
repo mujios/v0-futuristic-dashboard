@@ -1,30 +1,29 @@
 "use client"
 import { Card } from "@/components/ui/card"
-import { BarChart3, TrendingUp, Wallet, PieChart, ArrowRightLeft, Zap } from "lucide-react"
-import { useState } from "react"
+import { BarChart3, TrendingUp, Wallet, PieChart, ArrowRightLeft, CreditCard, Zap } from "lucide-react"
+
+export type ReportId = "overview" | "pl" | "balance" | "cashflow" | "receivables" | "payables" | "insights"
 
 interface SidebarProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  activeView: "dashboard" | "insights"
-  onViewChange: (view: "dashboard" | "insights") => void
+  activeSection: ReportId
+  onSectionChange: (section: ReportId) => void
 }
 
-const menuItems = [
-  { id: "overview", icon: BarChart3, label: "Overview", view: "dashboard" as const },
-  { id: "pl", icon: TrendingUp, label: "Profit & Loss", view: "dashboard" as const },
-  { id: "balance", icon: Wallet, label: "Balance Sheet", view: "dashboard" as const },
-  { id: "cashflow", icon: PieChart, label: "Cash Flow", view: "dashboard" as const },
-  { id: "receivables", icon: ArrowRightLeft, label: "Receivables", view: "dashboard" as const },
-  { id: "insights", icon: Zap, label: "AI Insights", view: "insights" as const },
+const menuItems: Array<{ id: ReportId; icon: typeof BarChart3; label: string }> = [
+  { id: "overview", icon: BarChart3, label: "Overview" },
+  { id: "pl", icon: TrendingUp, label: "Profit & Loss" },
+  { id: "balance", icon: Wallet, label: "Balance Sheet" },
+  { id: "cashflow", icon: PieChart, label: "Cash Flow" },
+  { id: "receivables", icon: ArrowRightLeft, label: "Receivables" },
+  { id: "payables", icon: CreditCard, label: "Payables" },
+  { id: "insights", icon: Zap, label: "AI Insights" },
 ]
 
-export default function Sidebar({ open, onOpenChange, activeView, onViewChange }: SidebarProps) {
-  const [activeItem, setActiveItem] = useState("overview")
-
-  const handleMenuClick = (item: (typeof menuItems)[0]) => {
-    setActiveItem(item.id)
-    onViewChange(item.view)
+export default function Sidebar({ open, onOpenChange, activeSection, onSectionChange }: SidebarProps) {
+  const handleMenuClick = (id: ReportId) => {
+    onSectionChange(id)
   }
 
   return (
@@ -49,10 +48,10 @@ export default function Sidebar({ open, onOpenChange, activeView, onViewChange }
               return (
                 <button
                   key={item.id}
-                  onClick={() => handleMenuClick(item)}
+                  onClick={() => handleMenuClick(item.id)}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    activeView === item.view && activeItem === item.id
-                      ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white"
+                    activeSection === item.id
+                      ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/20"
                       : "text-slate-400 hover:text-white hover:bg-slate-800"
                   }`}
                 >

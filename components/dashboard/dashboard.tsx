@@ -6,16 +6,18 @@ import Sidebar from "./sidebar"
 import ChartsGrid from "./charts-grid"
 import InsightsPanel from "./insights-panel"
 import AIChatPanel from "./ai-chat-panel"
+import SingleReportView from "./single-report-view"
 import ExportDialog from "./export-dialog"
 import { Loader2 } from "lucide-react"
 import { useDashboardData } from "@/hooks/use-dashboard-data"
 import { useToast } from "@/hooks/use-toast"
 import type { ExportData } from "@/lib/export"
+import type { ReportId } from "./sidebar"
 
 export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [selectedCompany, setSelectedCompany] = useState<string>("Interwood")
-  const [activeView, setActiveView] = useState<"dashboard" | "insights">("dashboard")
+  const [activeSection, setActiveSection] = useState<ReportId>("overview")
   const [dateRange, setDateRange] = useState({
     start: new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split("T")[0],
     end: new Date().toISOString().split("T")[0],
@@ -60,7 +62,12 @@ export default function Dashboard() {
   return (
     <div className="flex h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Sidebar */}
-      <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} activeView={activeView} onViewChange={setActiveView} />
+      <Sidebar
+        open={sidebarOpen}
+        onOpenChange={setSidebarOpen}
+        activeSection={activeSection}
+        onSectionChange={setActiveSection}
+      />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -93,18 +100,22 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-          ) : activeView === "dashboard" ? (
+          ) : activeSection === "overview" ? (
             <div className="p-6 space-y-6">
-              {/* Charts Grid */}
-              <ChartsGrid dateRange={dateRange} company={selectedCompany} />
+              {/* Charts Grid - pass data as prop */}
+              <ChartsGrid data={data} dateRange={dateRange} company={selectedCompany} />
 
               {/* Insights Section */}
               <InsightsPanel insights={data.insights || ""} />
             </div>
-          ) : (
+          ) : activeSection === "insights" ? (
             <div className="p-6">
               {/* AI Chat Panel */}
               <AIChatPanel company={selectedCompany} financialData={data} />
+            </div>
+          ) : (
+            <div className="p-6">
+              <SingleReportView sectionId={activeSection} data={data} dateRange={dateRange} company={selectedCompany} />
             </div>
           )}
         </main>

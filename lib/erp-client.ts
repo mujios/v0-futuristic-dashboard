@@ -93,7 +93,7 @@ export class ERPClient {
   }
 
   async getProfitAndLoss(company: string, startDate: string, endDate: string) {
-    const fiscalYear = getFiscalYear(startDate);
+    const fiscalYear = getFiscalYear(startDate)
     try {
       return await this.runReport("Profit and Loss Statement", {
         company,
@@ -114,7 +114,7 @@ export class ERPClient {
   }
 
   async getBalanceSheet(company: string, startDate: string, endDate: string) {
-    const fiscalYear = getFiscalYear(startDate);
+    const fiscalYear = getFiscalYear(startDate)
     try {
       return await this.runReport("Balance Sheet", {
         company,
@@ -135,7 +135,7 @@ export class ERPClient {
   }
 
   async getCashFlow(company: string, startDate: string, endDate: string) {
-    const fiscalYear = getFiscalYear(startDate);
+    const fiscalYear = getFiscalYear(startDate)
     try {
       return await this.runReport("Cash Flow", {
         company,
@@ -183,12 +183,12 @@ export class ERPClient {
         ["GL Entry", "posting_date", "<=", endDate],
       ]),
     })
-    return await this.get(`/resource/GL Entry?${params}`) 
+    return await this.get(`/resource/GL Entry?${params}`)
   }
 
   private async getAccountsFallback(company: string) {
     const params = new URLSearchParams({
-      fields: JSON.stringify(["name", "account_type"]), 
+      fields: JSON.stringify(["name", "account_type"]),
       filters: JSON.stringify([["Account", "company", "=", company]]),
     })
     return await this.get(`/resource/Account?${params}`)
@@ -204,7 +204,7 @@ export class ERPClient {
 
   private async getSalesInvoicesFallback(company: string) {
     const params = new URLSearchParams({
-      fields: JSON.stringify(["name", "customer"]), 
+      fields: JSON.stringify(["name", "customer"]),
       filters: JSON.stringify([["Sales Invoice", "company", "=", company]]),
     })
     return await this.get(`/resource/Sales Invoice?${params}`)
@@ -212,7 +212,7 @@ export class ERPClient {
 
   private async getPurchaseInvoicesFallback(company: string) {
     const params = new URLSearchParams({
-      fields: JSON.stringify(["name", "supplier"]), 
+      fields: JSON.stringify(["name", "supplier"]),
       filters: JSON.stringify([["Purchase Invoice", "company", "=", company]]),
     })
     return await this.get(`/resource/Purchase Invoice?${params}`)
@@ -225,10 +225,15 @@ export class ERPClient {
         fields: JSON.stringify(["name", "company_name"]),
         limit_page_length: "0",
       })
-      return await this.get<{ name: string; company_name: string }[]>(`/resource/Company?${params}`)
+      const response = await this.get<any>(`/resource/Company?${params}`)
+      const companies = response?.message || response?.data || []
+      const companyNames = Array.isArray(companies)
+        ? companies.map((c: any) => c.name || c).filter((name: string) => name && name.trim() !== "")
+        : []
+      return companyNames
     } catch (error) {
       console.error("[v15] Companies fetch error:", error)
-      return { message: [] }
+      return []
     }
   }
 

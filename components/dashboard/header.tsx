@@ -31,15 +31,28 @@ export default function Header({
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [companies, setCompanies] = useState<string[]>([])
   const [companiesLoading, setCompaniesLoading] = useState(true)
+  const [companiesError, setCompaniesError] = useState(false)
 
   useEffect(() => {
     const loadCompanies = async () => {
       try {
+        setCompaniesError(false)
         const data = await fetchCompanies()
-        const companyList = Array.isArray(data) ? data : data.companies || []
+        const companyList = Array.isArray(data)
+          ? data.filter(Boolean)
+          : Array.isArray(data?.companies)
+            ? data.companies.filter(Boolean)
+            : []
+
+        console.log("[v0] Companies loaded:", companyList)
         setCompanies(companyList)
+
+        if (companyList.length > 0 && !selectedCompany) {
+          onCompanyChange(companyList[0])
+        }
       } catch (err) {
         console.error("[v0] Failed to fetch companies:", err)
+        setCompaniesError(true)
       } finally {
         setCompaniesLoading(false)
       }
@@ -48,8 +61,12 @@ export default function Header({
   }, [])
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" })
-    router.push("/")
+    try {
+      await fetch("/api/auth/logout", { method: "POST" })
+      router.push("/")
+    } catch (error) {
+      console.error("[v0] Logout error:", error)
+    }
   }
 
   const handleRefreshClick = async () => {
@@ -76,26 +93,22 @@ export default function Header({
 
         {/* Right Section */}
         <div className="flex items-center gap-3">
-          <Select value={selectedCompany} onValueChange={onCompanyChange}>
+          <Select value={selectedCompany || ""} onValueChange={onCompanyChange}>
             <SelectTrigger className="w-40 border-slate-700 bg-slate-800/50 text-slate-200">
               <SelectValue placeholder="Select company" />
             </SelectTrigger>
             <SelectContent className="bg-slate-800 border-slate-700">
-              {companiesLoading ? (
-                <SelectItem value="" disabled>
-                  Loading companies...
-                </SelectItem>
-              ) : companies.length > 0 ? (
+              {companiesLoading && <div className="px-2 py-1 text-sm text-slate-400">Loading companies...</div>}
+              {companiesError && <div className="px-2 py-1 text-sm text-red-400">Failed to load companies</div>}
+              {!companiesLoading && !companiesError && companies.length > 0 ? (
                 companies.map((company) => (
                   <SelectItem key={company} value={company} className="text-slate-200">
                     {company}
                   </SelectItem>
                 ))
-              ) : (
-                <SelectItem value="" disabled>
-                  No companies found
-                </SelectItem>
-              )}
+              ) : !companiesLoading && !companiesError ? (
+                <div className="px-2 py-1 text-sm text-slate-400">No companies found</div>
+              ) : null}
             </SelectContent>
           </Select>
 

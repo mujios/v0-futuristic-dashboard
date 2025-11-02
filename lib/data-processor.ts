@@ -192,7 +192,16 @@ function processAgingReport(normalized: NormalizedReport, report: any, reportId:
       Number(totalRow[10] || 0), // 91-120 Days (range4)
       Number(totalRow[11] || 0), // 121-Above (range5)
     ]
-    normalized.chart3DLabels = ["0-30", "31-60", "61-90", "90-120", "120+"]
+    const chart3DLabelsValues = ["0-30", "30-60", "61-90", "90-120", "120+"]
+    // Assign to normalized report for 3D chart
+    normalized.chart3DData = chart3DDataValues
+    normalized.chart3DLabels = chart3DLabelsValues
+
+    // FIX: This section populates the chart2DData for the Recharts component
+    normalized.chart2DData = chart3DLabelsValues.map((label, index) => ({
+        name: label,
+        value: chart3DDataValues[index],
+    }));
   }
 
   normalized.rows = report.result

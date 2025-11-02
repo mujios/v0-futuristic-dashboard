@@ -43,6 +43,7 @@ export default function SingleReportView({ sectionId, data, dateRange, company }
   const chartData = parsedData.chart2DData
   const chart3dData = parsedData.chart3DData
   const tableData = parsedData.rows
+  const chart3dLabels = parsedData.chart3DLabels
 
   console.log(`[v0] Chart data:`, chartData)
   console.log(`[v0] Table data:`, tableData)
@@ -154,7 +155,7 @@ export default function SingleReportView({ sectionId, data, dateRange, company }
           </CardHeader>
           <CardContent>
             {chart3dData.length > 0 ? (
-              <Chart3D chartType={getChartType()} data={chart3dData} labels={parsedData.chart3DLabels} />
+              <Chart3D chartType={getChartType()} data={chart3dData} labels={chart3dLabels} />
             ) : (
               <div className="h-64 flex items-center justify-center text-slate-400">No 3D data available</div>
             )}

@@ -18,121 +18,27 @@ import {
   Pie,
   Cell,
 } from "recharts"
-import type { ReportId } from "./sidebar"
-
-interface SingleReportViewProps {
-  sectionId: ReportId
-  data: any
-  dateRange: { start: string; end: string }
-  company: string
-}
+import type { SingleReportViewProps } from "./sidebar"
+import { normalizeReport } from "@/lib/data-processor"
+import { getReportDescription } from "@/lib/report-description"
 
 // Web3 color palette for neon aesthetics
 const NEON_COLORS = ["#06b6d4", "#0ea5e9", "#8b5cf6", "#ec4899", "#f43f5e", "#f59e0b"]
 
 export default function SingleReportView({ sectionId, data, dateRange, company }: SingleReportViewProps) {
-  const getReportTitle = (id: ReportId): string => {
-    const titles: Record<ReportId, string> = {
-      overview: "Dashboard Overview",
-      pl: "Profit & Loss Statement",
-      balance: "Balance Sheet",
-      cashflow: "Cash Flow Analysis",
-      receivables: "Accounts Receivable Aging",
-      payables: "Accounts Payable Aging",
-      insights: "AI Insights",
-    }
-    return titles[id]
+  const parsedData = normalizeReport(sectionId, data, company)
+
+  if (!parsedData) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-slate-400">Unable to load report data</p>
+      </div>
+    )
   }
 
-  const getReportDescription = (id: ReportId): string => {
-    const descriptions: Record<ReportId, string> = {
-      overview: "Complete financial overview and key metrics",
-      pl: "Revenue, expenses, and profit analysis",
-      balance: "Assets, liabilities, and equity snapshot",
-      cashflow: "Cash inflows and outflows tracking",
-      receivables: "Customer payment aging analysis",
-      payables: "Vendor payment aging analysis",
-      insights: "AI-powered financial insights",
-    }
-    return descriptions[id]
-  }
-
-  // Parse financial statement data for 2D charts
-  const getFinancialChartData = () => {
-    if (sectionId === "pl" && data.profitAndLoss?.chart?.data?.datasets) {
-      const dataset = data.profitAndLoss.chart.data.datasets[0]
-      const labels = data.profitAndLoss.chart.data.labels || []
-      return labels.map((label: string, idx: number) => ({
-        name: label,
-        value: Number(dataset.values?.[idx] || 0),
-      }))
-    }
-    if (sectionId === "balance" && data.balanceSheet?.chart?.data?.datasets) {
-      const dataset = data.balanceSheet.chart.data.datasets[0]
-      const labels = data.balanceSheet.chart.data.labels || []
-      return labels.map((label: string, idx: number) => ({
-        name: label,
-        value: Number(dataset.values?.[idx] || 0),
-      }))
-    }
-    if (sectionId === "cashflow" && data.cashFlow?.chart?.data?.datasets) {
-      const dataset = data.cashFlow.chart.data.datasets[0]
-      const labels = data.cashFlow.chart.data.labels || []
-      return labels.map((label: string, idx: number) => ({
-        name: label,
-        value: Number(dataset.values?.[idx] || 0),
-      }))
-    }
-    return []
-  }
-
-  // Get 3D chart data
-  const get3DChartData = (): number[] => {
-    if (sectionId === "pl" && data.profitAndLoss?.chart?.data?.datasets?.[0]?.values) {
-      return data.profitAndLoss.chart.data.datasets[0].values.map((v: any) => Number(v) || 0)
-    }
-    if (sectionId === "balance" && data.balanceSheet?.chart?.data?.datasets?.[0]?.values) {
-      return data.balanceSheet.chart.data.datasets[0].values.map((v: any) => Number(v) || 0)
-    }
-    if (sectionId === "cashflow" && data.cashFlow?.chart?.data?.datasets?.[0]?.values) {
-      return data.cashFlow.chart.data.datasets[0].values.map((v: any) => Number(v) || 0)
-    }
-    if (
-      (sectionId === "receivables" || sectionId === "payables") &&
-      data[sectionId === "receivables" ? "receivables" : "payables"]?.result
-    ) {
-      const result = data[sectionId === "receivables" ? "receivables" : "payables"].result
-      const totalRow = result[result.length - 1]
-      if (Array.isArray(totalRow) && totalRow[0] === "Total") {
-        return totalRow.slice(11, 16).map((v: any) => Number(v) || 0)
-      }
-    }
-    return []
-  }
-
-  // Get table data based on report type
-  const getTableData = () => {
-    if (sectionId === "pl" && data.profitAndLoss?.result) {
-      return data.profitAndLoss.result.slice(0, 10)
-    }
-    if (sectionId === "balance" && data.balanceSheet?.result) {
-      return data.balanceSheet.result.slice(0, 10)
-    }
-    if (sectionId === "cashflow" && data.cashFlow?.result) {
-      return data.cashFlow.result.slice(0, 10)
-    }
-    if (sectionId === "receivables" && data.receivables?.result) {
-      return data.receivables.result.slice(0, 15)
-    }
-    if (sectionId === "payables" && data.payables?.result) {
-      return data.payables.result.slice(0, 15)
-    }
-    return []
-  }
-
-  const chartData = getFinancialChartData()
-  const chart3dData = get3DChartData()
-  const tableData = getTableData()
+  const chartData = parsedData.chart2DData
+  const chart3dData = parsedData.chart3DData
+  const tableData = parsedData.rows
 
   // Determine chart type based on section
   const getChartType = (): "bar" | "pie" | "line" | "column" | "radar" => {
@@ -147,7 +53,7 @@ export default function SingleReportView({ sectionId, data, dateRange, company }
     <div className="space-y-6">
       {/* Report Header */}
       <div>
-        <h2 className="text-3xl font-bold text-white mb-2">{getReportTitle(sectionId)}</h2>
+        <h2 className="text-3xl font-bold text-white mb-2">{parsedData.title}</h2>
         <p className="text-slate-400">{getReportDescription(sectionId)}</p>
       </div>
 
@@ -228,7 +134,7 @@ export default function SingleReportView({ sectionId, data, dateRange, company }
         </Card>
       </div>
 
-      {/* Data Table */}
+      {/* Data Table - Use normalized columns and rows */}
       <Card className="border-slate-700 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm">
         <CardHeader>
           <CardTitle className="text-cyan-400">Detailed Data</CardTitle>
@@ -239,44 +145,28 @@ export default function SingleReportView({ sectionId, data, dateRange, company }
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-700 hover:bg-slate-800/50">
-                  {sectionId === "receivables" || sectionId === "payables" ? (
-                    <>
-                      <TableHead className="text-cyan-400">Name</TableHead>
-                      <TableHead className="text-cyan-400">Amount</TableHead>
-                      <TableHead className="text-cyan-400">0-30 Days</TableHead>
-                      <TableHead className="text-cyan-400">30-60 Days</TableHead>
-                      <TableHead className="text-cyan-400">60-90 Days</TableHead>
-                      <TableHead className="text-cyan-400">90-120 Days</TableHead>
-                      <TableHead className="text-cyan-400">120+ Days</TableHead>
-                    </>
-                  ) : (
-                    <>
-                      <TableHead className="text-cyan-400">Account</TableHead>
-                      <TableHead className="text-cyan-400">Amount</TableHead>
-                      <TableHead className="text-cyan-400">Percentage</TableHead>
-                    </>
-                  )}
+                  {parsedData.columns.map((col) => (
+                    <TableHead key={col.key} className="text-cyan-400">
+                      {col.label}
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {tableData.map((row: any, idx: number) => (
                   <TableRow key={idx} className="border-slate-700 hover:bg-slate-800/50">
-                    {Array.isArray(row) ? (
-                      row
-                        .slice(0, sectionId === "receivables" || sectionId === "payables" ? 7 : 3)
-                        .map((cell: any, cellIdx: number) => (
-                          <TableCell
-                            key={cellIdx}
-                            className={cellIdx === 0 ? "text-white font-medium" : "text-slate-300"}
-                          >
-                            {typeof cell === "number"
-                              ? cell.toLocaleString("en-US", { maximumFractionDigits: 2 })
-                              : cell}
-                          </TableCell>
-                        ))
-                    ) : (
-                      <TableCell className="text-slate-300">{String(row)}</TableCell>
-                    )}
+                    {parsedData.columns.map((col) => (
+                      <TableCell
+                        key={col.key}
+                        className={col.isAccountName ? "text-white font-medium" : "text-slate-300"}
+                      >
+                        {col.isNumeric
+                          ? typeof row[col.key] === "number"
+                            ? row[col.key].toLocaleString("en-US", { maximumFractionDigits: 2 })
+                            : row[col.key]
+                          : row[col.key]}
+                      </TableCell>
+                    ))}
                   </TableRow>
                 ))}
               </TableBody>

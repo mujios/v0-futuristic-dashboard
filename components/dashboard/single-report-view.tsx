@@ -56,6 +56,9 @@ export default function SingleReportView({ sectionId, data, dateRange, company }
     if (sectionId === "receivables" || sectionId === "payables") return "column"
     return "bar"
   }
+  
+  // Helper to determine if we are rendering a horizontal bar chart (for P&L)
+  const isHorizontalBar = getChartType() === "bar"
 
   return (
     <div className="space-y-6">
@@ -77,10 +80,27 @@ export default function SingleReportView({ sectionId, data, dateRange, company }
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 {getChartType() === "bar" || getChartType() === "column" ? (
-                  <BarChart data={chartData}>
+                  <BarChart 
+                    data={chartData} 
+                    // Use vertical layout for horizontal bars (P&L)
+                    layout={isHorizontalBar ? "vertical" : "horizontal"}
+                  >
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="name" stroke="#94a3b8" />
-                    <YAxis stroke="#94a3b8" />
+                    
+                    {/* XAxis is numeric for horizontal bar chart (P&L) */}
+                    <XAxis 
+                      type={isHorizontalBar ? "number" : "category"}
+                      dataKey={isHorizontalBar ? undefined : "name"} 
+                      stroke="#94a3b8" 
+                    />
+                    
+                    {/* YAxis is categorical (for names) for horizontal bar chart (P&L) */}
+                    <YAxis 
+                      type={isHorizontalBar ? "category" : "number"}
+                      dataKey={isHorizontalBar ? "name" : undefined}
+                      stroke="#94a3b8" 
+                    />
+                    
                     <Tooltip
                       contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #475569" }}
                       labelStyle={{ color: "#06b6d4" }}
@@ -134,7 +154,7 @@ export default function SingleReportView({ sectionId, data, dateRange, company }
           </CardHeader>
           <CardContent>
             {chart3dData.length > 0 ? (
-              <Chart3D chartType={getChartType()} data={chart3dData} />
+              <Chart3D chartType={getChartType()} data={chart3dData} labels={parsedData.chart3DLabels} />
             ) : (
               <div className="h-64 flex items-center justify-center text-slate-400">No 3D data available</div>
             )}

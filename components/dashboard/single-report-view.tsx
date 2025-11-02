@@ -26,7 +26,11 @@ import { getReportDescription } from "@/lib/report-description"
 const NEON_COLORS = ["#06b6d4", "#0ea5e9", "#8b5cf6", "#ec4899", "#f43f5e", "#f59e0b"]
 
 export default function SingleReportView({ sectionId, data, dateRange, company }: SingleReportViewProps) {
+  console.log(`[v0] SingleReportView rendering with sectionId: ${sectionId}`, { data, company })
+
   const parsedData = normalizeReport(sectionId, data, company)
+
+  console.log(`[v0] Parsed data result:`, parsedData)
 
   if (!parsedData) {
     return (
@@ -39,6 +43,10 @@ export default function SingleReportView({ sectionId, data, dateRange, company }
   const chartData = parsedData.chart2DData
   const chart3dData = parsedData.chart3DData
   const tableData = parsedData.rows
+
+  console.log(`[v0] Chart data:`, chartData)
+  console.log(`[v0] Table data:`, tableData)
+  console.log(`[v0] Columns:`, parsedData.columns)
 
   // Determine chart type based on section
   const getChartType = (): "bar" | "pie" | "line" | "column" | "radar" => {
@@ -113,7 +121,7 @@ export default function SingleReportView({ sectionId, data, dateRange, company }
                 )}
               </ResponsiveContainer>
             ) : (
-              <div className="h-64 flex items-center justify-center text-slate-400">No data available</div>
+              <div className="h-64 flex items-center justify-center text-slate-400">No chart data available</div>
             )}
           </CardContent>
         </Card>
@@ -128,7 +136,7 @@ export default function SingleReportView({ sectionId, data, dateRange, company }
             {chart3dData.length > 0 ? (
               <Chart3D chartType={getChartType()} data={chart3dData} />
             ) : (
-              <div className="h-64 flex items-center justify-center text-slate-400">No data available</div>
+              <div className="h-64 flex items-center justify-center text-slate-400">No 3D data available</div>
             )}
           </CardContent>
         </Card>
@@ -138,7 +146,9 @@ export default function SingleReportView({ sectionId, data, dateRange, company }
       <Card className="border-slate-700 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm">
         <CardHeader>
           <CardTitle className="text-cyan-400">Detailed Data</CardTitle>
-          <CardDescription className="text-slate-400">Full report data table</CardDescription>
+          <CardDescription className="text-slate-400">
+            Full report data table ({tableData.length} rows, {parsedData.columns.length} columns)
+          </CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {tableData.length > 0 ? (
@@ -160,10 +170,8 @@ export default function SingleReportView({ sectionId, data, dateRange, company }
                         key={col.key}
                         className={col.isAccountName ? "text-white font-medium" : "text-slate-300"}
                       >
-                        {col.isNumeric
-                          ? typeof row[col.key] === "number"
-                            ? row[col.key].toLocaleString("en-US", { maximumFractionDigits: 2 })
-                            : row[col.key]
+                        {col.isNumeric && typeof row[col.key] === "number"
+                          ? row[col.key].toLocaleString("en-US", { maximumFractionDigits: 2 })
                           : row[col.key]}
                       </TableCell>
                     ))}
@@ -172,7 +180,9 @@ export default function SingleReportView({ sectionId, data, dateRange, company }
               </TableBody>
             </Table>
           ) : (
-            <div className="h-32 flex items-center justify-center text-slate-400">No data available</div>
+            <div className="h-32 flex items-center justify-center text-slate-400">
+              No data available for this report
+            </div>
           )}
         </CardContent>
       </Card>

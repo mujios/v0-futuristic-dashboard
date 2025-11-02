@@ -33,6 +33,8 @@ function sanitizeAccountName(name: string): string {
 
 export function normalizeReport(reportId: ReportId, rawData: any, companyName: string): NormalizedReport | null {
   try {
+    console.log(`[v0] Normalizing report ${reportId}`, rawData)
+
     // Extract the appropriate report from rawData
     const reportMap: Record<ReportId, string> = {
       overview: "",
@@ -45,15 +47,21 @@ export function normalizeReport(reportId: ReportId, rawData: any, companyName: s
     }
 
     const reportKey = reportMap[reportId]
-    if (!reportKey) return null
+    if (!reportKey) {
+      console.warn(`[v0] No report key found for ${reportId}`)
+      return null
+    }
 
     const report = rawData[reportKey]
-    if (!report) return null
+    if (!report) {
+      console.warn(`[v0] Report ${reportKey} not found in rawData`)
+      return null
+    }
 
     // Initialize normalized structure
     const normalized: NormalizedReport = {
       title: getTitleForReport(reportId),
-      currency: "USD",
+      currency: report.chart?.currency || "USD",
       columns: [],
       rows: [],
       chart2DData: [],
@@ -69,6 +77,7 @@ export function normalizeReport(reportId: ReportId, rawData: any, companyName: s
       processAgingReport(normalized, report, reportId)
     }
 
+    console.log(`[v0] Normalized report:`, normalized)
     return normalized
   } catch (error) {
     console.error(`[v0] Error normalizing ${reportId}:`, error)
@@ -77,79 +86,143 @@ export function normalizeReport(reportId: ReportId, rawData: any, companyName: s
 }
 
 function processFinancialStatement(normalized: NormalizedReport, report: any, reportId: ReportId): void {
-  // Extract 2D chart data from chart section
+  console.log(`[v0] Processing financial statement: ${reportId}`, report)
+
   if (report.chart?.data?.datasets) {
     const dataset = report.chart.data.datasets[0]
     const labels = report.chart.data.labels || []
     normalized.chart2DData = labels.map((label: string, idx: number) => ({
-      name: label,
-      value: Math.abs(Number(dataset.values?.[idx] || 0)), // Use absolute value
+      name: sanitizeAccountName(String(label || "")),
+      value: Math.abs(Number(dataset.data?.[idx] || dataset.values?.[idx] || 0)),
     }))
   }
 
-  // Extract 3D chart data
-  if (report.chart?.data?.datasets?.[0]?.values) {
-    normalized.chart3DData = report.chart.data.datasets[0].values.map((v: any) => Math.abs(Number(v) || 0))
-    normalized.chart3DLabels = report.chart.data.labels || []
+  if (report.chart?.data?.datasets?.[0]?.data) {
+    normalized.chart3DData = report.chart.data.datasets[0].data.map((v: any) => Math.abs(Number(v) || 0))
+    normalized.chart3DLabels = (report.chart.data.labels || []).map((l: string) => sanitizeAccountName(String(l || "")))
   }
 
-  // Process table rows with filtering
   if (Array.isArray(report.result)) {
-    const excludePatterns = ["Total", "Profit for the year", "Asset", "Liability", "Funds"]
-    const columnConfig: TableColumn[] = [
-      { key: "account_name", label: "Account", isNumeric: false, isAccountName: true },
-      { key: "amount", label: "Amount", isNumeric: true, isAccountName: false },
-      { key: "percentage", label: "%", isNumeric: true, isAccountName: false },
-    ]
+    const excludePatterns = ["Total", "Profit for the year", "Asset", "Liability", "Funds", "Expense"]
 
-    normalized.columns = columnConfig
-    normalized.rows = report.result
-      .slice(0, 10) // Limit to first 10 rows
-      .filter((row: any) => {
-        if (!Array.isArray(row) || row.length === 0) return false
-        const accountName = String(row[0] || "")
-        return !excludePatterns.some((pattern) => accountName.includes(pattern))
-      })
-      .map((row: any) => ({
-        account_name: sanitizeAccountName(String(row[0] || "")),
-        amount: Number(row[1] || 0),
-        percentage: Number(row[2] || 0),
+    if (report.columns && Array.isArray(report.columns)) {
+      normalized.columns = report.columns.map((col: any) => ({
+        key: col.fieldname,
+        label: col.label || col.fieldname,
+        isNumeric: col.fieldtype === "Currency" || col.fieldtype === "Float" || col.fieldtype === "Int",
+        isAccountName: col.label === "Account" || col.label === "Section" || col.fieldname === "account_name",
       }))
+    } else {
+      // Fallback columns
+      normalized.columns = [
+        { key: "account", label: "Account", isNumeric: false, isAccountName: true },
+        { key: "value", label: "Amount", isNumeric: true, isAccountName: false },
+      ]
+    }
+
+    normalized.rows = report.result
+      .filter((row: any) => {
+        if (typeof row !== "object" || row === null) return false
+        // Check if row contains summary keywords
+        const rowStr = JSON.stringify(row)
+        return !excludePatterns.some((pattern) => rowStr.includes(pattern))
+      })
+      .slice(0, 15) // Limit to first 15 rows
+      .map((row: any) => {
+        const normalizedRow: any = {}
+
+        // Map each column using the key from the column definition
+        normalized.columns.forEach((col) => {
+          if (row[col.key] !== undefined) {
+            if (col.isNumeric) {
+              normalizedRow[col.key] = Number.parseFloat(String(row[col.key]) || "0")
+            } else if (col.isAccountName) {
+              normalizedRow[col.key] = sanitizeAccountName(String(row[col.key] || ""))
+            } else {
+              normalizedRow[col.key] = String(row[col.key] || "")
+            }
+          }
+        })
+
+        return normalizedRow
+      })
   }
 }
 
 function processAgingReport(normalized: NormalizedReport, report: any, reportId: ReportId): void {
-  if (!Array.isArray(report.result)) return
+  console.log(`[v0] Processing aging report: ${reportId}`, report)
+
+  if (!Array.isArray(report.result)) {
+    console.warn(`[v0] No result array in aging report`)
+    return
+  }
 
   const columnConfig: TableColumn[] = [
-    { key: "name", label: reportId === "receivables" ? "Customer" : "Supplier", isNumeric: false, isAccountName: true },
-    { key: "amount", label: "Amount", isNumeric: true, isAccountName: false },
-    { key: "aging_0_30", label: "0-30 Days", isNumeric: true, isAccountName: false },
-    { key: "aging_30_60", label: "30-60 Days", isNumeric: true, isAccountName: false },
-    { key: "aging_60_90", label: "60-90 Days", isNumeric: true, isAccountName: false },
-    { key: "aging_90_120", label: "90-120 Days", isNumeric: true, isAccountName: false },
-    { key: "aging_120_plus", label: "120+ Days", isNumeric: true, isAccountName: false },
+    {
+      key: "name",
+      label: reportId === "receivables" ? "Customer" : "Supplier",
+      isNumeric: false,
+      isAccountName: true,
+    },
+    { key: "invoiced", label: "Invoiced", isNumeric: true, isAccountName: false },
+    { key: "outstanding", label: "Outstanding", isNumeric: true, isAccountName: false },
+    { key: "range1", label: "0-30 Days", isNumeric: true, isAccountName: false },
+    { key: "range2", label: "30-60 Days", isNumeric: true, isAccountName: false },
+    { key: "range3", label: "60-90 Days", isNumeric: true, isAccountName: false },
+    { key: "range4", label: "90-120 Days", isNumeric: true, isAccountName: false },
+    { key: "range5", label: "120+ Days", isNumeric: true, isAccountName: false },
   ]
 
   normalized.columns = columnConfig
 
-  // Extract aging bucket data from total row (typically row 7+)
   const totalRow = report.result[report.result.length - 1]
-  if (Array.isArray(totalRow) && totalRow[0] === "Total") {
-    normalized.chart3DData = totalRow.slice(11, 16).map((v: any) => Number(v) || 0)
+  if (Array.isArray(totalRow)) {
+    console.log(`[v0] Total row found:`, totalRow)
+    // Total row format: [name, invoiced, outstanding, range1, range2, range3, range4, range5, ...]
+    normalized.chart3DData = [
+      Number(totalRow[3] || 0), // 0-30
+      Number(totalRow[4] || 0), // 30-60
+      Number(totalRow[5] || 0), // 60-90
+      Number(totalRow[6] || 0), // 90-120
+      Number(totalRow[7] || 0), // 120+
+    ]
     normalized.chart3DLabels = ["0-30", "30-60", "60-90", "90-120", "120+"]
   }
 
-  // Process rows
-  normalized.rows = report.result.slice(0, 15).map((row: any) => ({
-    name: sanitizeAccountName(String(row[0] || "")),
-    amount: Number(row[1] || 0),
-    aging_0_30: Number(row[11] || 0),
-    aging_30_60: Number(row[12] || 0),
-    aging_60_90: Number(row[13] || 0),
-    aging_90_120: Number(row[14] || 0),
-    aging_120_plus: Number(row[15] || 0),
-  }))
+  normalized.rows = report.result
+    .filter((row: any, idx: number) => {
+      // Exclude the last row if it's the Total array
+      if (idx === report.result.length - 1 && Array.isArray(row)) return false
+      return typeof row === "object" && row !== null
+    })
+    .slice(0, 15)
+    .map((row: any) => {
+      const normalizedRow: any = {}
+
+      if (typeof row === "object" && !Array.isArray(row)) {
+        // Object-based row
+        normalizedRow.name = sanitizeAccountName(String(row.name || row.customer || row.supplier || ""))
+        normalizedRow.invoiced = Number.parseFloat(String(row.invoiced || 0))
+        normalizedRow.outstanding = Number.parseFloat(String(row.outstanding || 0))
+        normalizedRow.range1 = Number.parseFloat(String(row.range1 || 0))
+        normalizedRow.range2 = Number.parseFloat(String(row.range2 || 0))
+        normalizedRow.range3 = Number.parseFloat(String(row.range3 || 0))
+        normalizedRow.range4 = Number.parseFloat(String(row.range4 || 0))
+        normalizedRow.range5 = Number.parseFloat(String(row.range5 || 0))
+      } else if (Array.isArray(row)) {
+        // Array-based row
+        normalizedRow.name = sanitizeAccountName(String(row[0] || ""))
+        normalizedRow.invoiced = Number.parseFloat(String(row[1] || 0))
+        normalizedRow.outstanding = Number.parseFloat(String(row[2] || 0))
+        normalizedRow.range1 = Number.parseFloat(String(row[3] || 0))
+        normalizedRow.range2 = Number.parseFloat(String(row[4] || 0))
+        normalizedRow.range3 = Number.parseFloat(String(row[5] || 0))
+        normalizedRow.range4 = Number.parseFloat(String(row[6] || 0))
+        normalizedRow.range5 = Number.parseFloat(String(row[7] || 0))
+      }
+
+      return normalizedRow
+    })
 }
 
 function getTitleForReport(reportId: ReportId): string {

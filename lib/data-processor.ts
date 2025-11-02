@@ -61,7 +61,7 @@ export function normalizeReport(reportId: ReportId, rawData: any, companyName: s
     // Initialize normalized structure
     const normalized: NormalizedReport = {
       title: getTitleForReport(reportId),
-      currency: report.chart?.currency || "USD",
+      currency: report.chart?.currency || "PKR",
       columns: [],
       rows: [],
       chart2DData: [],
@@ -97,9 +97,16 @@ function processFinancialStatement(normalized: NormalizedReport, report: any, re
     }))
   }
 
-  if (report.chart?.data?.datasets?.[0]?.data) {
-    normalized.chart3DData = report.chart.data.datasets[0].data.map((v: any) => Math.abs(Number(v) || 0))
-    normalized.chart3DLabels = (report.chart.data.labels || []).map((l: string) => sanitizeAccountName(String(l || "")))
+  if (report.chart?.data?.datasets?.[0]) {
+    const dataset = report.chart.data.datasets[0]
+    const rawData = dataset.data || dataset.values // Use 'values' if 'data' is not present
+
+    if (rawData && Array.isArray(rawData)) {
+      normalized.chart3DData = rawData.map((v: any) => Math.abs(Number(v) || 0))
+      normalized.chart3DLabels = (report.chart.data.labels || []).map((l: string) =>
+        sanitizeAccountName(String(l || "")),
+      )
+    }
   }
 
   if (Array.isArray(report.result)) {
@@ -178,15 +185,14 @@ function processAgingReport(normalized: NormalizedReport, report: any, reportId:
   const totalRow = report.result[report.result.length - 1]
   if (Array.isArray(totalRow)) {
     console.log(`[v0] Total row found:`, totalRow)
-    // Total row format: [name, invoiced, outstanding, range1, range2, range3, range4, range5, ...]
     normalized.chart3DData = [
-      Number(totalRow[3] || 0), // 0-30
-      Number(totalRow[4] || 0), // 30-60
-      Number(totalRow[5] || 0), // 60-90
-      Number(totalRow[6] || 0), // 90-120
-      Number(totalRow[7] || 0), // 120+
+      Number(totalRow[7] || 0), // 0-30 Days (range1)
+      Number(totalRow[8] || 0), // 31-60 Days (range2)
+      Number(totalRow[9] || 0), // 61-90 Days (range3)
+      Number(totalRow[10] || 0), // 91-120 Days (range4)
+      Number(totalRow[11] || 0), // 121-Above (range5)
     ]
-    normalized.chart3DLabels = ["0-30", "30-60", "60-90", "90-120", "120+"]
+    normalized.chart3DLabels = ["0-30", "31-60", "61-90", "90-120", "120+"]
   }
 
   normalized.rows = report.result

@@ -30,11 +30,15 @@ export default function Sidebar({ open, onOpenChange, activeSection, onSectionCh
     <>
       {/* Sidebar */}
       <div
-        className={`fixed left-0 top-0 h-screen w-64 border-r border-slate-700 bg-slate-900/80 backdrop-blur-sm transition-transform duration-300 z-40 ${
-          open ? "translate-x-0" : "-translate-x-full"
-        } md:static md:translate-x-0`}
+        className={`
+          h-screen border-r border-slate-700 bg-slate-900/80 backdrop-blur-sm transition-all duration-300 z-40
+          fixed left-0 top-0
+          ${open ? "translate-x-0 w-64" : "-translate-x-full w-64"}
+          md:static md:translate-x-0
+          ${open ? "md:w-64" : "md:w-0 md:overflow-hidden"}
+        `}
       >
-        <div className="p-6 space-y-8">
+        <div className={`p-6 space-y-8 ${!open && "md:opacity-0"}`}>
           {/* Logo */}
           <div className="space-y-2">
             <h2 className="text-xl font-bold text-white">ERP3D</h2>

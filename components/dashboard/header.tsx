@@ -1,10 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Menu, LogOut, RotateCcw, Download } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { fetchCompanies } from "@/lib/api-client"
 
 interface HeaderProps {
   onToggleSidebar: () => void
@@ -27,6 +29,23 @@ export default function Header({
 }: HeaderProps) {
   const router = useRouter()
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [companies, setCompanies] = useState<string[]>([])
+  const [companiesLoading, setCompaniesLoading] = useState(true)
+
+  useEffect(() => {
+    const loadCompanies = async () => {
+      try {
+        const data = await fetchCompanies()
+        const companyList = Array.isArray(data) ? data : data.companies || []
+        setCompanies(companyList)
+      } catch (err) {
+        console.error("[v0] Failed to fetch companies:", err)
+      } finally {
+        setCompaniesLoading(false)
+      }
+    }
+    loadCompanies()
+  }, [])
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" })
@@ -57,6 +76,29 @@ export default function Header({
 
         {/* Right Section */}
         <div className="flex items-center gap-3">
+          <Select value={selectedCompany} onValueChange={onCompanyChange}>
+            <SelectTrigger className="w-40 border-slate-700 bg-slate-800/50 text-slate-200">
+              <SelectValue placeholder="Select company" />
+            </SelectTrigger>
+            <SelectContent className="bg-slate-800 border-slate-700">
+              {companiesLoading ? (
+                <SelectItem value="" disabled>
+                  Loading companies...
+                </SelectItem>
+              ) : companies.length > 0 ? (
+                companies.map((company) => (
+                  <SelectItem key={company} value={company} className="text-slate-200">
+                    {company}
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem value="" disabled>
+                  No companies found
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+
           <div className="flex items-center gap-2 bg-slate-800/50 rounded-lg px-3 py-2">
             <span className="text-sm text-slate-400">From:</span>
             <Input

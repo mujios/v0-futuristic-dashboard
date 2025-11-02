@@ -42,7 +42,7 @@ Provide 1-3 specific next steps for management.
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
-        temperature: 0.6, 
+        temperature: 0.6,
         maxOutputTokens: 1000,
       },
     })
@@ -138,5 +138,40 @@ Keep response concise and actionable.
   } catch (error) {
     console.error("[v0] Gemini cash analysis error:", error)
     return "Unable to analyze cash position"
+  }
+}
+
+export async function generateChatResponse(data: FinancialData, prompt: string, company: string): Promise<string> {
+  try {
+    const dataContext = JSON.stringify(data, null, 2)
+
+    const systemPrompt = `You are a knowledgeable financial AI assistant for ${company}. 
+You have access to the following financial data and should provide insightful, accurate, and actionable responses.
+
+Financial Data Context:
+${dataContext}
+
+When answering questions:
+1. Be specific and reference actual figures from the data when possible
+2. Provide context and analysis, not just numbers
+3. Suggest actionable recommendations when appropriate
+4. Flag any concerning metrics or trends
+5. Keep responses concise but comprehensive`
+
+    const result = await model.generateContent({
+      contents: [
+        { role: "user", parts: [{ text: systemPrompt }] },
+        { role: "user", parts: [{ text: prompt }] },
+      ],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 500,
+      },
+    })
+
+    return result.response.text()
+  } catch (error) {
+    console.error("[v0] Gemini chat error:", error)
+    throw new Error("Failed to generate chat response")
   }
 }

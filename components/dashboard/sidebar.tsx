@@ -6,19 +6,26 @@ import { useState } from "react"
 interface SidebarProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  activeView: "dashboard" | "insights"
+  onViewChange: (view: "dashboard" | "insights") => void
 }
 
 const menuItems = [
-  { icon: BarChart3, label: "Overview", href: "#overview" },
-  { icon: TrendingUp, label: "Profit & Loss", href: "#pl" },
-  { icon: Wallet, label: "Balance Sheet", href: "#balance" },
-  { icon: PieChart, label: "Cash Flow", href: "#cashflow" },
-  { icon: ArrowRightLeft, label: "Receivables", href: "#receivables" },
-  { icon: Zap, label: "AI Insights", href: "#insights" },
+  { id: "overview", icon: BarChart3, label: "Overview", view: "dashboard" as const },
+  { id: "pl", icon: TrendingUp, label: "Profit & Loss", view: "dashboard" as const },
+  { id: "balance", icon: Wallet, label: "Balance Sheet", view: "dashboard" as const },
+  { id: "cashflow", icon: PieChart, label: "Cash Flow", view: "dashboard" as const },
+  { id: "receivables", icon: ArrowRightLeft, label: "Receivables", view: "dashboard" as const },
+  { id: "insights", icon: Zap, label: "AI Insights", view: "insights" as const },
 ]
 
-export default function Sidebar({ open, onOpenChange }: SidebarProps) {
+export default function Sidebar({ open, onOpenChange, activeView, onViewChange }: SidebarProps) {
   const [activeItem, setActiveItem] = useState("overview")
+
+  const handleMenuClick = (item: (typeof menuItems)[0]) => {
+    setActiveItem(item.id)
+    onViewChange(item.view)
+  }
 
   return (
     <>
@@ -41,10 +48,10 @@ export default function Sidebar({ open, onOpenChange }: SidebarProps) {
               const Icon = item.icon
               return (
                 <button
-                  key={item.href}
-                  onClick={() => setActiveItem(item.href)}
+                  key={item.id}
+                  onClick={() => handleMenuClick(item)}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    activeItem === item.href
+                    activeView === item.view && activeItem === item.id
                       ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white"
                       : "text-slate-400 hover:text-white hover:bg-slate-800"
                   }`}

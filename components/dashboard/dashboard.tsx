@@ -5,6 +5,7 @@ import Header from "./header"
 import Sidebar from "./sidebar"
 import ChartsGrid from "./charts-grid"
 import InsightsPanel from "./insights-panel"
+import AIChatPanel from "./ai-chat-panel"
 import ExportDialog from "./export-dialog"
 import { Loader2 } from "lucide-react"
 import { useDashboardData } from "@/hooks/use-dashboard-data"
@@ -14,6 +15,7 @@ import type { ExportData } from "@/lib/export"
 export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [selectedCompany, setSelectedCompany] = useState<string>("Interwood")
+  const [activeView, setActiveView] = useState<"dashboard" | "insights">("dashboard")
   const [dateRange, setDateRange] = useState({
     start: new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split("T")[0],
     end: new Date().toISOString().split("T")[0],
@@ -21,7 +23,6 @@ export default function Dashboard() {
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const { toast } = useToast()
 
-  // Fetch all dashboard data including chart values and insights
   const { data, loading, error, refresh } = useDashboardData(selectedCompany, dateRange.start, dateRange.end)
 
   const handleRefresh = () => {
@@ -59,7 +60,7 @@ export default function Dashboard() {
   return (
     <div className="flex h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Sidebar */}
-      <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />
+      <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} activeView={activeView} onViewChange={setActiveView} />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -92,13 +93,18 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-          ) : (
+          ) : activeView === "dashboard" ? (
             <div className="p-6 space-y-6">
               {/* Charts Grid */}
               <ChartsGrid dateRange={dateRange} company={selectedCompany} />
 
               {/* Insights Section */}
               <InsightsPanel insights={data.insights || ""} />
+            </div>
+          ) : (
+            <div className="p-6">
+              {/* AI Chat Panel */}
+              <AIChatPanel company={selectedCompany} financialData={data} />
             </div>
           )}
         </main>

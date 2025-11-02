@@ -185,7 +185,9 @@ function processAgingReport(normalized: NormalizedReport, report: any, reportId:
   const totalRow = report.result[report.result.length - 1]
   if (Array.isArray(totalRow)) {
     console.log(`[v0] Total row found:`, totalRow)
-    normalized.chart3DData = [
+    
+    // Correct indices for aging buckets from the Total array (indices 7 through 11)
+    const chart3DDataValues = [
       Number(totalRow[7] || 0), // 0-30 Days (range1)
       Number(totalRow[8] || 0), // 31-60 Days (range2)
       Number(totalRow[9] || 0), // 61-90 Days (range3)
@@ -193,11 +195,12 @@ function processAgingReport(normalized: NormalizedReport, report: any, reportId:
       Number(totalRow[11] || 0), // 121-Above (range5)
     ]
     const chart3DLabelsValues = ["0-30", "30-60", "61-90", "90-120", "120+"]
+
     // Assign to normalized report for 3D chart
     normalized.chart3DData = chart3DDataValues
     normalized.chart3DLabels = chart3DLabelsValues
 
-    // FIX: This section populates the chart2DData for the Recharts component
+    // FIX: Populate chart2DData for Recharts
     normalized.chart2DData = chart3DLabelsValues.map((label, index) => ({
         name: label,
         value: chart3DDataValues[index],
@@ -206,7 +209,7 @@ function processAgingReport(normalized: NormalizedReport, report: any, reportId:
 
   normalized.rows = report.result
     .filter((row: any, idx: number) => {
-      // Exclude the last row if it's the Total array
+      // Exclude the last row (Total array) and nulls
       if (idx === report.result.length - 1 && Array.isArray(row)) return false
       return typeof row === "object" && row !== null
     })
@@ -214,9 +217,10 @@ function processAgingReport(normalized: NormalizedReport, report: any, reportId:
     .map((row: any) => {
       const normalizedRow: any = {}
 
+      // The raw data uses 'party' for the name field, so we must check for it first.
       if (typeof row === "object" && !Array.isArray(row)) {
         // Object-based row
-        normalizedRow.name = sanitizeAccountName(String(row.name || row.customer || row.supplier || ""))
+        normalizedRow.name = sanitizeAccountName(String(row.party || row.name || row.customer || row.supplier || "")) // <-- FIXED: Added 'row.party' check
         normalizedRow.invoiced = Number.parseFloat(String(row.invoiced || 0))
         normalizedRow.outstanding = Number.parseFloat(String(row.outstanding || 0))
         normalizedRow.range1 = Number.parseFloat(String(row.range1 || 0))
@@ -224,20 +228,11 @@ function processAgingReport(normalized: NormalizedReport, report: any, reportId:
         normalizedRow.range3 = Number.parseFloat(String(row.range3 || 0))
         normalizedRow.range4 = Number.parseFloat(String(row.range4 || 0))
         normalizedRow.range5 = Number.parseFloat(String(row.range5 || 0))
-      } else if (Array.isArray(row)) {
-        // Array-based row
-        normalizedRow.name = sanitizeAccountName(String(row[0] || ""))
-        normalizedRow.invoiced = Number.parseFloat(String(row[1] || 0))
-        normalizedRow.outstanding = Number.parseFloat(String(row[2] || 0))
-        normalizedRow.range1 = Number.parseFloat(String(row[3] || 0))
-        normalizedRow.range2 = Number.parseFloat(String(row[4] || 0))
-        normalizedRow.range3 = Number.parseFloat(String(row[5] || 0))
-        normalizedRow.range4 = Number.parseFloat(String(row[6] || 0))
-        normalizedRow.range5 = Number.parseFloat(String(row[7] || 0))
-      }
-
-      return normalizedRow
-    })
+        return normalizedRow
+      } 
+      // Removed the unnecessary and potentially incorrect `else if (Array.isArray(row))` block.
+      return null
+    }).filter(Boolean) // Filter out nulls
 }
 
 function getTitleForReport(reportId: ReportId): string {

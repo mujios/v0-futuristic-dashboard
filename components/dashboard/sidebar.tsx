@@ -157,9 +157,7 @@ export default function Sidebar({
                 </div>
               </div>
             </Card>
-          </div>
-
-          {/* CHANGE: Footer section with mobile controls - visible on mobile when sidebar is open */}
+            {/* CHANGE: Footer section with mobile controls - visible on mobile when sidebar is open */}
           <div className="md:hidden border-t border-slate-700 p-6 space-y-4">
             {/* Company Selector */}
             <div className="space-y-2">
@@ -224,6 +222,7 @@ export default function Sidebar({
               <LogOut className="h-4 w-4" />
               <span>Logout</span>
             </Button>
+          </div>
           </div>
         </div>
       </div>

@@ -93,13 +93,13 @@ export default function LoginForm() {
               type="text"
               name="username"
               placeholder="your@email.com"
-              value={formData.username}
+             // value={formData.username}
               onChange={handleChange}
               required
               disabled={loading}
               className="border-slate-600 bg-slate-800/50 text-white placeholder-slate-500"
             />
-            <p className="text-xs text-slate-500">Default: {DEFAULT_USERNAME}</p>
+            {/*<p className="text-xs text-slate-500">Default: {DEFAULT_USERNAME}</p>*/}
           </div>
 
           <div className="space-y-2">
@@ -108,13 +108,13 @@ export default function LoginForm() {
               type="password"
               name="password"
               placeholder="••••••••"
-              value={formData.password}
+              //value={formData.password}
               onChange={handleChange}
               required
               disabled={loading}
               className="border-slate-600 bg-slate-800/50 text-white placeholder-slate-500"
             />
-            <p className="text-xs text-slate-500">Default: {DEFAULT_PASSWORD}</p>
+            {/*<p className="text-xs text-slate-500">Default: {DEFAULT_PASSWORD}</p>*/}
           </div>
 
           <Button

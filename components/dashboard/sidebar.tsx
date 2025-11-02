@@ -158,7 +158,7 @@ export default function Sidebar({
               </div>
             </Card>
             {/* CHANGE: Footer section with mobile controls - visible on mobile when sidebar is open */}
-          <div className="md:hidden border-t border-slate-700 p-6 space-y-4">
+          <div className="lg:hidden border-t border-slate-700 p-6 space-y-4">
             {/* Company Selector */}
             <div className="space-y-2">
               <label className="text-xs text-slate-400 uppercase tracking-wider">Company</label>

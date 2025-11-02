@@ -91,8 +91,8 @@ export default function Header({
           <h1 className="text-2xl font-bold text-white">Financial Dashboard</h1>
         </div>
 
-        {/* Right Section */}
-        <div className="flex items-center gap-3">
+        {/* Right Section - CHANGE: Hide on mobile (<md), show only on desktop */}
+        <div className="hidden md:flex items-center gap-3">
           <Select value={selectedCompany || ""} onValueChange={onCompanyChange}>
             <SelectTrigger className="w-40 border-slate-700 bg-slate-800/50 text-slate-200">
               <SelectValue placeholder="Select company" />

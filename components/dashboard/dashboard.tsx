@@ -67,6 +67,12 @@ export default function Dashboard() {
         onOpenChange={setSidebarOpen}
         activeSection={activeSection}
         onSectionChange={setActiveSection}
+        selectedCompany={selectedCompany}
+        onCompanyChange={setSelectedCompany}
+        dateRange={dateRange}
+        onDateRangeChange={setDateRange}
+        onRefresh={handleRefresh}
+        onExport={handleExport}
       />
 
       {/* Main Content */}

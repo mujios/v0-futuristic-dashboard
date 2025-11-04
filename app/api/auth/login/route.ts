@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const dashboardUsername = process.env.DASHBOARD_USERNAME
     const dashboardPassword = process.env.DASHBOARD_PASS
 
-    if (username !== dashboardUsername.trim() || password !== dashboardPassword) {
+    if (username.trim() !== dashboardUsername || password !== dashboardPassword) {
       return Response.json({ error: "Invalid credentials" }, { status: 401 })
     }
 

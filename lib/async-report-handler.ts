@@ -160,13 +160,23 @@ export async function handleReportRequest(
 ): Promise<any> {
   // If response indicates async processing, fetch the result
   if (isPreparedReport(initialResponse)) {
-    console.log(
-      `[v0] Report "${reportName}" is async (prepared_report: true). Polling Prepared Report: ${initialResponse.name}`
-    )
+    console.log(`[v0] Report "${reportName}" is async (prepared_report: true)`)
+    console.log(`[v0] Prepared Report docname: ${initialResponse.name}`)
+    console.log(`[v0] Starting polling: /api/resource/Prepared Report/${initialResponse.name}`)
+
     // Use the docname from the response to poll the Prepared Report
-    return fetchPreparedReportResult(erpUrl, initialResponse.name, apiKey, apiSecret)
+    const result = await fetchPreparedReportResult(erpUrl, initialResponse.name, apiKey, apiSecret)
+
+    console.log("[v0] Polling complete - result structure:", {
+      hasColumns: !!result?.columns,
+      hasData: !!result?.data,
+      rowCount: Array.isArray(result?.data) ? result.data.length : 0,
+    })
+
+    return result
   }
 
   // Otherwise return the initial response (already complete)
+  console.log(`[v0] Report "${reportName}" returned synchronously (no prepared_report flag)`)
   return initialResponse
 }

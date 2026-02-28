@@ -86,11 +86,59 @@ export class ERPClient {
   }
 
   // -------------------- Reports via query_report.run -------------------- //
-  private async runReport(reportName: string, filters: Record<string, any>) {
+  private async runReport(reportName: string, filters: Record<string, any>, ignoreAsync = false) {
+    // Log request for debugging per spec requirement
+    console.log(`[v0] runReport request:`, {
+      reportName,
+      filters: JSON.stringify(filters, null, 2),
+      ignoreAsync,
+    })
+
+    // Try with ignore_prepared_report first if requested
+    if (ignoreAsync) {
+      console.log(`[v0] Attempting report with ignore_prepared_report=True bypass`)
+      try {
+        const filterParams = new URLSearchParams()
+        filterParams.append("report_name", reportName)
+        Object.entries(filters).forEach(([key, value]) => {
+          filterParams.append(`filters_${key}`, JSON.stringify(value))
+        })
+        filterParams.append("ignore_prepared_report", "True")
+
+        const url = `${this.erpUrl}/api/method/frappe.desk.query_report.run?${filterParams.toString()}`
+        const token = `Token ${this.apiKey}:${this.apiSecret}`
+
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: token,
+          },
+        })
+
+        if (response.ok) {
+          const result = await response.json()
+          // If we got full results (not prepared_report), return immediately
+          if (!result?.message?.prepared_report && result?.message?.columns) {
+            console.log(`[v0] Bypass successful - got immediate results`)
+            return result?.message ?? result?.data ?? result
+          }
+        }
+      } catch (err) {
+        console.warn(`[v0] Bypass attempt failed, falling back to normal flow:`, err)
+      }
+    }
+
+    // Normal flow: POST with body
     const body = { report_name: reportName, filters }
     const response = await this.post("/method/frappe.desk.query_report.run", body)
     const initialData = response?.message ?? response?.data ?? response
-    
+
+    console.log(`[v0] Report initial response:`, {
+      isPrepared: initialData?.prepared_report,
+      hasPreparedName: !!initialData?.name,
+    })
+
     // Handle async prepared reports - if prepared_report: true, poll for result
     const finalData = await handleReportRequest(
       initialData,
@@ -99,7 +147,7 @@ export class ERPClient {
       this.apiKey,
       this.apiSecret
     )
-    
+
     // Extract actual report data from the response
     return finalData?.message ?? finalData?.data ?? finalData
   }
@@ -107,81 +155,141 @@ export class ERPClient {
   async getProfitAndLoss(company: string, startDate: string, endDate: string) {
     const fiscalYear = getFiscalYear(startDate)
     try {
-      return await this.runReport("Profit and Loss Statement", {
+      // Validate required filters per spec
+      if (!company) throw new Error("company is required")
+      if (!startDate || !endDate) throw new Error("startDate and endDate are required")
+
+      const filters = {
         company,
         period_start_date: startDate,
         period_end_date: endDate,
-        from_date: startDate,
-        to_date: endDate,
-        from_fiscal_year: fiscalYear,
-        to_fiscal_year: fiscalYear,
-        periodicity: "Monthly", // Mandatory working filter
+        periodicity: "Monthly",
         accumulated_values: 0,
-        include_default_book_entries: 1,
-      })
+      }
+
+      console.log("[v0] getProfitAndLoss filters validated:", filters)
+
+      // Try with prepared_report bypass first
+      const data = await this.runReport("Profit and Loss Statement", filters, true)
+      
+      if (!data || (Array.isArray(data) && data.length === 0)) {
+        console.warn("[v0] P&L returned empty data, checking for error")
+        return { columns: [], data: [] }
+      }
+
+      return data
     } catch (error) {
-      console.error("[v15] Profit & Loss fallback:", error)
-      return await this.getGLEntriesFallback(company, startDate, endDate)
+      console.error("[v0] Profit & Loss error:", error)
+      // Fallback: Return empty result with warning instead of freezing
+      return { columns: [], data: [], warning: "Failed to fetch P&L data" }
     }
   }
 
   async getBalanceSheet(company: string, startDate: string, endDate: string) {
-    const fiscalYear = getFiscalYear(startDate)
     try {
-      return await this.runReport("Balance Sheet", {
+      // Validate required filters per spec
+      if (!company) throw new Error("company is required")
+      if (!startDate || !endDate) throw new Error("startDate and endDate are required")
+
+      const filters = {
         company,
         period_start_date: startDate,
         period_end_date: endDate,
-        from_date: startDate,
-        to_date: endDate,
-        from_fiscal_year: fiscalYear,
-        to_fiscal_year: fiscalYear,
-        periodicity: "Monthly", // Mandatory working filter
+        periodicity: "Monthly",
         accumulated_values: 0,
-        include_default_book_entries: 1,
-      })
+      }
+
+      console.log("[v0] getBalanceSheet filters validated:", filters)
+
+      // Try with prepared_report bypass first
+      const data = await this.runReport("Balance Sheet", filters, true)
+
+      if (!data || (Array.isArray(data) && data.length === 0)) {
+        console.warn("[v0] Balance Sheet returned empty data")
+        return { columns: [], data: [] }
+      }
+
+      return data
     } catch (error) {
-      console.error("[v15] Balance Sheet fallback:", error)
-      return await this.getAccountsFallback(company)
+      console.error("[v0] Balance Sheet error:", error)
+      // Fallback: Return empty result with warning
+      return { columns: [], data: [], warning: "Failed to fetch Balance Sheet data" }
     }
   }
 
   async getCashFlow(company: string, startDate: string, endDate: string) {
-    const fiscalYear = getFiscalYear(startDate)
     try {
-      return await this.runReport("Cash Flow", {
+      // Validate required filters per spec
+      if (!company) throw new Error("company is required")
+      if (!startDate || !endDate) throw new Error("startDate and endDate are required")
+
+      const filters = {
         company,
         period_start_date: startDate,
         period_end_date: endDate,
-        from_date: startDate,
-        to_date: endDate,
-        from_fiscal_year: fiscalYear,
-        to_fiscal_year: fiscalYear,
-        periodicity: "Monthly", // Mandatory working filter
+        periodicity: "Monthly",
         accumulated_values: 0,
-        include_default_book_entries: 1,
-      })
+      }
+
+      console.log("[v0] getCashFlow filters validated:", filters)
+
+      // Try with prepared_report bypass first
+      const data = await this.runReport("Cash Flow", filters, true)
+
+      if (!data || (Array.isArray(data) && data.length === 0)) {
+        console.warn("[v0] Cash Flow returned empty data")
+        return { columns: [], data: [] }
+      }
+
+      return data
     } catch (error) {
-      console.error("[v15] Cash Flow fallback:", error)
-      return await this.getPaymentEntriesFallback(company)
+      console.error("[v0] Cash Flow error:", error)
+      // Fallback: Return empty result with warning
+      return { columns: [], data: [], warning: "Failed to fetch Cash Flow data" }
     }
   }
 
   async getAccountsReceivable(company: string) {
     try {
-      return await this.runReport("Accounts Receivable Summary", { company })
+      if (!company) throw new Error("company is required")
+
+      const filters = { company }
+      console.log("[v0] getAccountsReceivable filters validated:", filters)
+
+      // Try with prepared_report bypass first
+      const data = await this.runReport("Accounts Receivable Summary", filters, true)
+
+      if (!data || (Array.isArray(data) && data.length === 0)) {
+        console.warn("[v0] Accounts Receivable returned empty data")
+        return { columns: [], data: [] }
+      }
+
+      return data
     } catch (error) {
-      console.error("[v15] Accounts Receivable fallback:", error)
-      return await this.getSalesInvoicesFallback(company)
+      console.error("[v0] Accounts Receivable error:", error)
+      return { columns: [], data: [], warning: "Failed to fetch Accounts Receivable" }
     }
   }
 
   async getAccountsPayable(company: string) {
     try {
-      return await this.runReport("Accounts Payable Summary", { company })
+      if (!company) throw new Error("company is required")
+
+      const filters = { company }
+      console.log("[v0] getAccountsPayable filters validated:", filters)
+
+      // Try with prepared_report bypass first
+      const data = await this.runReport("Accounts Payable Summary", filters, true)
+
+      if (!data || (Array.isArray(data) && data.length === 0)) {
+        console.warn("[v0] Accounts Payable returned empty data")
+        return { columns: [], data: [] }
+      }
+
+      return data
     } catch (error) {
-      console.error("[v15] Accounts Payable fallback:", error)
-      return await this.getPurchaseInvoicesFallback(company)
+      console.error("[v0] Accounts Payable error:", error)
+      return { columns: [], data: [], warning: "Failed to fetch Accounts Payable" }
     }
   }
 

@@ -32,9 +32,76 @@ const reportCache = new Map<string, ReportCache>()
 
 /**
  * Checks if a response indicates an async prepared report
+ * Can have name (direct polling) or no name (need to discover via filters)
  */
-export function isPreparedReport(response: any): response is PreparedReportResponse {
-  return response?.prepared_report === true && typeof response?.name === "string"
+export function isPreparedReport(response: any): boolean {
+  return response?.prepared_report === true
+}
+
+/**
+ * Searches for Prepared Report by report name and filters
+ * When prepared_report: true is returned without a name, we query the list
+ */
+async function findPreparedReportByFilters(
+  erpUrl: string,
+  reportName: string,
+  filters: Record<string, any>,
+  apiKey: string,
+  apiSecret: string,
+  retryCount = 0
+): Promise<string | null> {
+  if (retryCount >= 5) {
+    console.error(`[v0] Could not find Prepared Report for "${reportName}" after 5 retries`)
+    return null
+  }
+
+  // Wait before retrying
+  if (retryCount > 0) {
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+  }
+
+  try {
+    // Query for recently created Prepared Report matching this report
+    // Filter by report_name and creation time (within last 30 seconds)
+    const url = `${erpUrl}/api/resource/Prepared Report?filters=[["report_name","=","${reportName}"]]&fields=["name","status","creation"]&order_by=creation desc&limit_page_length=1`
+    const token = `Token ${apiKey}:${apiSecret}`
+
+    console.log(`[v0] Searching for Prepared Report (attempt ${retryCount + 1}/5): ${reportName}`)
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token,
+      },
+    })
+
+    if (!response.ok) {
+      console.warn(`[v0] Prepared Report search returned ${response.status}, retrying...`)
+      return findPreparedReportByFilters(erpUrl, reportName, filters, apiKey, apiSecret, retryCount + 1)
+    }
+
+    const result = await response.json()
+    const records = result.data
+
+    if (!Array.isArray(records) || records.length === 0) {
+      console.log(
+        `[v0] No Prepared Report found yet (attempt ${retryCount + 1}/5), retrying...`
+      )
+      return findPreparedReportByFilters(erpUrl, reportName, filters, apiKey, apiSecret, retryCount + 1)
+    }
+
+    const mostRecent = records[0]
+    console.log(`[v0] Found Prepared Report: ${mostRecent.name} (status: ${mostRecent.status})`)
+
+    return mostRecent.name
+  } catch (error) {
+    console.warn(
+      `[v0] Error searching for Prepared Report (attempt ${retryCount + 1}/5):`,
+      error
+    )
+    return findPreparedReportByFilters(erpUrl, reportName, filters, apiKey, apiSecret, retryCount + 1)
+  }
 }
 
 /**
@@ -149,23 +216,42 @@ export async function fetchPreparedReportResult(
 
 /**
  * Handles initial report request and automatically fetches if async
- * Per spec: Extract name from response and poll Prepared Report doctype
+ * Two cases:
+ * 1. prepared_report: true with name -> poll directly
+ * 2. prepared_report: true without name -> discover via filter search
  */
 export async function handleReportRequest(
   initialResponse: any,
   erpUrl: string,
   reportName: string,
   apiKey: string,
-  apiSecret: string
+  apiSecret: string,
+  filters?: Record<string, any>
 ): Promise<any> {
   // If response indicates async processing, fetch the result
   if (isPreparedReport(initialResponse)) {
     console.log(`[v0] Report "${reportName}" is async (prepared_report: true)`)
-    console.log(`[v0] Prepared Report docname: ${initialResponse.name}`)
-    console.log(`[v0] Starting polling: /api/resource/Prepared Report/${initialResponse.name}`)
 
-    // Use the docname from the response to poll the Prepared Report
-    const result = await fetchPreparedReportResult(erpUrl, initialResponse.name, apiKey, apiSecret)
+    let reportDocName = initialResponse.name
+
+    // Case 1: Name is included in response
+    if (reportDocName) {
+      console.log(`[v0] Prepared Report docname provided: ${reportDocName}`)
+    } else {
+      // Case 2: No name provided - discover via filter search
+      console.log(`[v0] No docname provided, searching for Prepared Report by filters...`)
+      reportDocName = await findPreparedReportByFilters(erpUrl, reportName, filters || {}, apiKey, apiSecret)
+
+      if (!reportDocName) {
+        console.error(`[v0] Failed to find Prepared Report for "${reportName}"`)
+        return { columns: [], data: [], error: "Could not locate prepared report" }
+      }
+    }
+
+    console.log(`[v0] Starting polling: /api/resource/Prepared Report/${reportDocName}`)
+
+    // Poll the Prepared Report until complete
+    const result = await fetchPreparedReportResult(erpUrl, reportDocName, apiKey, apiSecret)
 
     console.log("[v0] Polling complete - result structure:", {
       hasColumns: !!result?.columns,

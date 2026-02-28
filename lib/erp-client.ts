@@ -140,12 +140,14 @@ export class ERPClient {
     })
 
     // Handle async prepared reports - if prepared_report: true, poll for result
+    // Pass filters so we can discover Prepared Report by filter search if no name provided
     const finalData = await handleReportRequest(
       initialData,
       this.erpUrl,
       reportName,
       this.apiKey,
-      this.apiSecret
+      this.apiSecret,
+      filters
     )
 
     // Extract actual report data from the response

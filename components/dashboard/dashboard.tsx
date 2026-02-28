@@ -23,17 +23,43 @@ export default function Dashboard() {
     end: new Date().toISOString().split("T")[0],
   })
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const [hasManuallyFetched, setHasManuallyFetched] = useState(false)
   const { toast } = useToast()
 
-  const { data, loading, error, refresh } = useDashboardData(selectedCompany, dateRange.start, dateRange.end)
+  // NO AUTO-FETCH: Pass dummy values to useDashboardData to prevent initialization fetch
+  const { data, loading, error, refresh } = useDashboardData(
+    hasManuallyFetched ? selectedCompany : "",
+    hasManuallyFetched ? dateRange.start : "",
+    hasManuallyFetched ? dateRange.end : ""
+  )
 
-  const handleRefresh = () => {
+  const handleFetch = () => {
+    if (!selectedCompany || !dateRange.start || !dateRange.end) {
+      toast({
+        title: "Invalid filters",
+        description: "Please select company and date range before fetching data.",
+        variant: "destructive",
+      })
+      return
+    }
+    setHasManuallyFetched(true)
     refresh()
     toast({
-      title: "Refreshing data",
-      description: "Fetching latest financial information...",
+      title: "Fetching data",
+      description: "Loading financial reports and generating AI insights...",
       duration: 2000,
     })
+  }
+
+  const handleRefresh = () => {
+    if (hasManuallyFetched) {
+      refresh()
+      toast({
+        title: "Refreshing data",
+        description: "Fetching latest financial information...",
+        duration: 2000,
+      })
+    }
   }
 
   const handleExport = () => {
@@ -86,11 +112,22 @@ export default function Dashboard() {
           onDateRangeChange={setDateRange}
           onRefresh={handleRefresh}
           onExport={handleExport}
+          onFetch={handleFetch}
+          hasFetched={hasManuallyFetched}
         />
 
         {/* Content Area */}
         <main className="flex-1 overflow-auto">
-          {loading ? (
+          {!hasManuallyFetched ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center space-y-6 max-w-md">
+                <div className="text-slate-400">
+                  <p className="font-semibold text-lg mb-2">Ready to analyze</p>
+                  <p className="text-sm">Select company and date range, then click Fetch to load financial reports.</p>
+                </div>
+              </div>
+            </div>
+          ) : loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center space-y-4">
                 <Loader2 className="h-12 w-12 animate-spin text-cyan-500 mx-auto" />

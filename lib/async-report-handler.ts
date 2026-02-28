@@ -4,46 +4,62 @@
  * processed asynchronously and we need to poll for the result separately
  */
 
-const MAX_RETRIES = 30 // Max 30 retries (3 minutes with 6-second intervals)
-const RETRY_DELAY = 6000 // 6 seconds between retries
+const MAX_RETRIES = 10 // Max 10 retries per spec (30 seconds with 3-second intervals)
+const RETRY_DELAY = 3000 // 3 seconds between retries per spec
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minute cache
 
 interface PreparedReportResponse {
   prepared_report: true
-  report_name?: string
-}
-
-interface ReportResultResponse {
-  message?: {
-    keys?: string[]
-    result?: any[]
-    columns?: any[]
-    [key: string]: any
-  }
-  data?: any
+  name: string // Critical: Report docname for polling
   [key: string]: any
 }
+
+interface PreparedReportDocResponse {
+  data?: {
+    status: string
+    report_result?: string // JSON string containing the actual report data
+    [key: string]: any
+  }
+  [key: string]: any
+}
+
+interface ReportCache {
+  data: any
+  timestamp: number
+}
+
+const reportCache = new Map<string, ReportCache>()
 
 /**
  * Checks if a response indicates an async prepared report
  */
 export function isPreparedReport(response: any): response is PreparedReportResponse {
-  return response?.prepared_report === true
+  return response?.prepared_report === true && typeof response?.name === "string"
 }
 
 /**
- * Polls for async report result using get_report_result
+ * Polls for async report result using Prepared Report doctype
+ * Correct endpoint per spec: GET /api/resource/Prepared Report/{name}
  * Retries up to MAX_RETRIES times with RETRY_DELAY between attempts
  */
 export async function fetchPreparedReportResult(
   erpUrl: string,
-  reportName: string,
+  reportDocName: string,
   apiKey: string,
   apiSecret: string,
   retryCount = 0
-): Promise<ReportResultResponse> {
+): Promise<any> {
+  // Check cache first
+  const cacheKey = `${erpUrl}:${reportDocName}`
+  const cached = reportCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    console.log(`[v0] Using cached result for Prepared Report "${reportDocName}"`)
+    return cached.data
+  }
+
   if (retryCount >= MAX_RETRIES) {
-    console.warn(
-      `[v0] Async report "${reportName}" exceeded max retries (${MAX_RETRIES}). Returning empty result.`
+    console.error(
+      `[v0] Prepared Report "${reportDocName}" exceeded max retries (${MAX_RETRIES}). Aborting.`
     )
     return { message: { result: [], columns: [] } }
   }
@@ -54,49 +70,86 @@ export async function fetchPreparedReportResult(
   }
 
   try {
-    const url = `${erpUrl}/api/method/frappe.desk.query_report.get_report_result`
+    // Use correct endpoint per spec: /api/resource/Prepared Report/{name}
+    const url = `${erpUrl}/api/resource/Prepared%20Report/${encodeURIComponent(reportDocName)}`
     const token = `Token ${apiKey}:${apiSecret}`
 
+    console.log(`[v0] Polling Prepared Report (attempt ${retryCount + 1}/${MAX_RETRIES}): ${reportDocName}`)
+
     const response = await fetch(url, {
-      method: "POST",
+      method: "GET",
       headers: {
         "Content-Type": "application/json",
         Authorization: token,
       },
-      body: JSON.stringify({ report_name: reportName }),
     })
 
     if (!response.ok) {
-      const errorText = await response.text()
       console.warn(
-        `[v0] Retry ${retryCount + 1}/${MAX_RETRIES}: get_report_result returned ${response.status}`
+        `[v0] Attempt ${retryCount + 1}/${MAX_RETRIES}: Prepared Report endpoint returned ${response.status}`
       )
-      return fetchPreparedReportResult(erpUrl, reportName, apiKey, apiSecret, retryCount + 1)
+      return fetchPreparedReportResult(erpUrl, reportDocName, apiKey, apiSecret, retryCount + 1)
     }
 
-    const result = await response.json()
+    const result: PreparedReportDocResponse = await response.json()
+    const docData = result.data
 
-    // If the result still indicates prepared_report, continue polling
-    if (isPreparedReport(result)) {
-      console.log(`[v0] Retry ${retryCount + 1}/${MAX_RETRIES}: Report still being prepared...`)
-      return fetchPreparedReportResult(erpUrl, reportName, apiKey, apiSecret, retryCount + 1)
+    if (!docData) {
+      console.warn(`[v0] Attempt ${retryCount + 1}/${MAX_RETRIES}: No document data in response`)
+      return fetchPreparedReportResult(erpUrl, reportDocName, apiKey, apiSecret, retryCount + 1)
+    }
+
+    // Check status - per spec, stop on Error or continue on Completed
+    if (docData.status === "Error") {
+      console.error(`[v0] Prepared Report "${reportDocName}" has Error status. Aborting.`)
+      return { message: { result: [], columns: [] } }
+    }
+
+    if (docData.status !== "Completed") {
+      console.log(
+        `[v0] Attempt ${retryCount + 1}/${MAX_RETRIES}: Status is "${docData.status}", continuing to poll...`
+      )
+      return fetchPreparedReportResult(erpUrl, reportDocName, apiKey, apiSecret, retryCount + 1)
+    }
+
+    // Status is Completed - parse report_result
+    const reportResult = docData.report_result
+    if (!reportResult) {
+      console.warn(`[v0] Completed report has no report_result. Returning empty.`)
+      return { message: { result: [], columns: [] } }
+    }
+
+    // report_result is typically a JSON string
+    let parsedResult = reportResult
+    if (typeof reportResult === "string") {
+      try {
+        parsedResult = JSON.parse(reportResult)
+      } catch {
+        // If not JSON, use as-is
+        parsedResult = reportResult
+      }
     }
 
     console.log(
-      `[v0] Async report "${reportName}" resolved on retry ${retryCount + 1}/${MAX_RETRIES}`
+      `[v0] Prepared Report "${reportDocName}" completed successfully on attempt ${retryCount + 1}/${MAX_RETRIES}`
     )
-    return result
+
+    // Cache the result
+    reportCache.set(cacheKey, { data: parsedResult, timestamp: Date.now() })
+
+    return parsedResult
   } catch (error) {
     console.warn(
-      `[v0] Retry ${retryCount + 1}/${MAX_RETRIES}: Error fetching report result:`,
+      `[v0] Attempt ${retryCount + 1}/${MAX_RETRIES}: Error fetching Prepared Report:`,
       error
     )
-    return fetchPreparedReportResult(erpUrl, reportName, apiKey, apiSecret, retryCount + 1)
+    return fetchPreparedReportResult(erpUrl, reportDocName, apiKey, apiSecret, retryCount + 1)
   }
 }
 
 /**
  * Handles initial report request and automatically fetches if async
+ * Per spec: Extract name from response and poll Prepared Report doctype
  */
 export async function handleReportRequest(
   initialResponse: any,
@@ -107,10 +160,13 @@ export async function handleReportRequest(
 ): Promise<any> {
   // If response indicates async processing, fetch the result
   if (isPreparedReport(initialResponse)) {
-    console.log(`[v0] Report "${reportName}" is async (prepared_report: true). Polling for result...`)
-    return fetchPreparedReportResult(erpUrl, reportName, apiKey, apiSecret)
+    console.log(
+      `[v0] Report "${reportName}" is async (prepared_report: true). Polling Prepared Report: ${initialResponse.name}`
+    )
+    // Use the docname from the response to poll the Prepared Report
+    return fetchPreparedReportResult(erpUrl, initialResponse.name, apiKey, apiSecret)
   }
 
-  // Otherwise return the initial response
+  // Otherwise return the initial response (already complete)
   return initialResponse
 }

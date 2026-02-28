@@ -10,17 +10,23 @@ export async function GET(request: Request) {
     return Response.json({ error: "Missing required parameters" }, { status: 400 })
   }
 
-try {
+  try {
     const client = await getERPClient()
     const data = await client.getCashFlow(company, startDate, endDate)
-    console.log(data)
-    // FIX: Ensure data is not undefined/null before sanitizing and returning.
-    const sanitizedData = data === undefined || data === null ? {} : data;
-
-    // The previous fix: return Response.json(JSON.parse(JSON.stringify(data)))
-    return Response.json(JSON.parse(JSON.stringify(sanitizedData)))
+    
+    const sanitizedData = data === undefined || data === null ? {} : data
+    const response = {
+      data: JSON.parse(JSON.stringify(sanitizedData)),
+      async: false,
+      timestamp: new Date().toISOString(),
+    }
+    
+    return Response.json(response)
   } catch (error) {
     console.error("[v0] Cash Flow API error:", error)
-    return Response.json({ error: "Failed to fetch Cash Flow data" }, { status: 500 })
+    return Response.json(
+      { error: "Failed to fetch Cash Flow data", async: false, timestamp: new Date().toISOString() },
+      { status: 500 }
+    )
   }
 }

@@ -1,4 +1,5 @@
 import { getFiscalYear } from "./utils"
+import { handleReportRequest } from "./async-report-handler"
 
 const API_TIMEOUT = 15000
 
@@ -88,8 +89,19 @@ export class ERPClient {
   private async runReport(reportName: string, filters: Record<string, any>) {
     const body = { report_name: reportName, filters }
     const response = await this.post("/method/frappe.desk.query_report.run", body)
-    // ERPNext reports return data in .data for success or .message for complex structures
-    return response?.message ?? response?.data ?? response
+    const initialData = response?.message ?? response?.data ?? response
+    
+    // Handle async prepared reports - if prepared_report: true, poll for result
+    const finalData = await handleReportRequest(
+      initialData,
+      this.erpUrl,
+      reportName,
+      this.apiKey,
+      this.apiSecret
+    )
+    
+    // Extract actual report data from the response
+    return finalData?.message ?? finalData?.data ?? finalData
   }
 
   async getProfitAndLoss(company: string, startDate: string, endDate: string) {

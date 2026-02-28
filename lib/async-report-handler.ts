@@ -4,8 +4,11 @@
  * processed asynchronously and we need to poll for the result separately
  */
 
-const MAX_RETRIES = 10 // Max 10 retries per spec (30 seconds with 3-second intervals)
-const RETRY_DELAY = 3000 // 3 seconds between retries per spec
+// ERPNext prepared reports need 1-2 minutes to complete
+// Allow 30+ retries with 60 second delays = up to 30 minutes wait time
+const MAX_RETRIES = 30 // 30 retries with 60s delays = 30 minutes max wait
+const RETRY_DELAY = 60000 // 60 seconds (1 minute) between retries - ERPNext needs time!
+const INITIAL_WAIT_BEFORE_SEARCH = 90000 // 90 seconds (1.5 minutes) before first search - give ERPNext time to create Prepared Report
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minute cache
 
 interface PreparedReportResponse {
@@ -50,14 +53,19 @@ async function findPreparedReportByFilters(
   apiSecret: string,
   retryCount = 0
 ): Promise<string | null> {
-  if (retryCount >= 5) {
-    console.error(`[v0] Could not find Prepared Report for "${reportName}" after 5 retries`)
+  if (retryCount >= MAX_RETRIES) {
+    console.error(`[v0] Could not find Prepared Report for "${reportName}" after ${MAX_RETRIES} retries (${(MAX_RETRIES * RETRY_DELAY) / 1000 / 60} minutes)`)
     return null
   }
 
-  // Wait before retrying
-  if (retryCount > 0) {
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+  // Wait BEFORE first attempt (give ERPNext time to create the Prepared Report)
+  if (retryCount === 0) {
+    console.log(`[v0] Waiting ${INITIAL_WAIT_BEFORE_SEARCH / 1000 / 60} minutes before searching for Prepared Report...`)
+    await new Promise((resolve) => setTimeout(resolve, INITIAL_WAIT_BEFORE_SEARCH))
+  } else {
+    // Wait between retries (ERPNext needs time to complete report processing)
+    console.log(`[v0] Waiting ${RETRY_DELAY / 1000 / 60} minutes before next attempt...`)
+    await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY))
   }
 
   try {
@@ -126,13 +134,14 @@ export async function fetchPreparedReportResult(
 
   if (retryCount >= MAX_RETRIES) {
     console.error(
-      `[v0] Prepared Report "${reportDocName}" exceeded max retries (${MAX_RETRIES}). Aborting.`
+      `[v0] Prepared Report "${reportDocName}" exceeded max retries (${MAX_RETRIES} retries = ${(MAX_RETRIES * RETRY_DELAY) / 1000 / 60} minutes). Aborting.`
     )
     return { message: { result: [], columns: [] } }
   }
 
-  // Wait before retrying (except on first attempt)
+  // Wait before retrying (except on first attempt - we already waited in findPreparedReportByFilters)
   if (retryCount > 0) {
+    console.log(`[v0] Waiting ${RETRY_DELAY / 1000 / 60} minutes before polling attempt ${retryCount + 1}/${MAX_RETRIES}...`)
     await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY))
   }
 
@@ -141,7 +150,7 @@ export async function fetchPreparedReportResult(
     const url = `${erpUrl}/api/resource/Prepared%20Report/${encodeURIComponent(reportDocName)}`
     const token = `Token ${apiKey}:${apiSecret}`
 
-    console.log(`[v0] Polling Prepared Report (attempt ${retryCount + 1}/${MAX_RETRIES}): ${reportDocName}`)
+    console.log(`[v0] Polling Prepared Report (attempt ${retryCount + 1}/${MAX_RETRIES}, elapsed ~${(retryCount * RETRY_DELAY) / 1000 / 60}min): ${reportDocName}`)
 
     const response = await fetch(url, {
       method: "GET",
@@ -174,7 +183,7 @@ export async function fetchPreparedReportResult(
 
     if (docData.status !== "Completed") {
       console.log(
-        `[v0] Attempt ${retryCount + 1}/${MAX_RETRIES}: Status is "${docData.status}", continuing to poll...`
+        `[v0] Attempt ${retryCount + 1}/${MAX_RETRIES}: Status is "${docData.status}", waiting ${RETRY_DELAY / 1000 / 60}min before next poll...`
       )
       return fetchPreparedReportResult(erpUrl, reportDocName, apiKey, apiSecret, retryCount + 1)
     }

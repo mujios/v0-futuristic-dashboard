@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Menu, LogOut, RotateCcw, Download } from "lucide-react"
+import { Menu, LogOut, RotateCcw, Download, Play } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { fetchCompanies } from "@/lib/api-client"
 
@@ -16,6 +16,8 @@ interface HeaderProps {
   onDateRangeChange: (range: { start: string; end: string }) => void
   onRefresh: () => void
   onExport: () => void
+  onFetch: () => void
+  hasFetched: boolean
 }
 
 export default function Header({
@@ -26,6 +28,8 @@ export default function Header({
   onDateRangeChange,
   onRefresh,
   onExport,
+  onFetch,
+  hasFetched,
 }: HeaderProps) {
   const router = useRouter()
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -93,6 +97,16 @@ export default function Header({
 
         {/* Right Section - CHANGE: Hide on mobile (<md), show only on desktop */}
         <div className="hidden lg:flex items-center gap-3">
+          {/* Fetch Button - Primary action */}
+          <Button
+            onClick={onFetch}
+            variant="default"
+            className="gap-2 bg-cyan-600 hover:bg-cyan-700 text-white"
+          >
+            <Play className="h-4 w-4" />
+            Fetch Reports
+          </Button>
+
           <Select value={selectedCompany || ""} onValueChange={onCompanyChange}>
             <SelectTrigger className="w-40 border-slate-700 bg-slate-800/50 text-slate-200">
               <SelectValue placeholder="Select company" />

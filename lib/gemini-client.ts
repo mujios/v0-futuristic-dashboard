@@ -13,42 +13,40 @@ interface FinancialData {
 
 export async function generateFinancialInsights(data: FinancialData, company: string): Promise<string> {
   try {
+    // Data is already optimized to contain only summary totals
     const dataContext = JSON.stringify(data, null, 2)
 
-    const prompt = `
-You are a financial analyst AI assistant. Analyze the following ERPNext financial data for ${company}.
+    const prompt = `You are a financial analyst AI assistant. Analyze the following aggregated financial totals for ${company}.
 
-Provide a comprehensive financial analysis structured EXACTLY into the following five sections using markdown headers (##).
-
-Financial Data:
+Financial Summary (Totals Only):
 ${dataContext}
 
+Provide EXACTLY five sections using markdown headers (##). Keep analysis concise and focused on key metrics.
+
 ## KEY FINANCIAL METRICS SUMMARY
-Provide a concise, 1-2 paragraph overview of profitability, liquidity, and solvency.
+1-2 sentences: Profitability, liquidity, and solvency overview based on totals.
 
 ## RISK ALERTS
-Provide 1-3 concise bullet points listing any concerning financial indicators or red flags.
+Bullet points: Any concerning indicators or red flags from the totals provided.
 
 ## OPPORTUNITIES
-Provide 1-3 concise bullet points listing high-level recommendations for improvement.
-
-## TREND ANALYSIS
-Provide 1-3 concise bullet points identifying important quantitative or qualitative changes compared to recent periods.
+Bullet points: High-level recommendations based on the financial position.
 
 ## ACTIONABLE INSIGHTS
-Provide 1-3 specific next steps for management.
-`
+Bullet points: 1-3 specific next steps for management.
+
+## DATA LIMITATIONS
+Brief note: Analysis based on aggregated totals only, not detailed account-level data.`
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.6,
-        maxOutputTokens: 1000,
+        maxOutputTokens: 600, // Reduced from 1000 as data is pre-summarized
       },
     })
 
     const text = result.response.text()
-    // Return the full text, letting the client parse the headers (##)
     return text.trim()
   } catch (error) {
     console.error("[v0] Gemini financial insights error:", error)

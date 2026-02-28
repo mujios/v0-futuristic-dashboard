@@ -1,5 +1,14 @@
 import { generateFinancialInsights } from "@/lib/gemini-client"
 import { getERPClient } from "@/lib/erp-client"
+import {
+  extractPLSummary,
+  extractBSSummary,
+  extractCFSummary,
+  extractARSummary,
+  extractAPSummary,
+  consolidateReportSummaries,
+  isPreparedReport,
+} from "@/lib/ai-report-processor"
 
 export async function POST(request: Request) {
   try {
@@ -19,16 +28,41 @@ export async function POST(request: Request) {
       client.getAccountsPayable(company),
     ])
 
-    const financialData = {
-      profitAndLoss: plData.status === "fulfilled" ? plData.value : null,
-      balanceSheet: bsData.status === "fulfilled" ? bsData.value : null,
-      cashFlow: cfData.status === "fulfilled" ? cfData.value : null,
-      receivables: arData.status === "fulfilled" ? arData.value : null,
-      payables: apData.status === "fulfilled" ? apData.value : null,
+    // Extract only summary totals to reduce token usage by >90%
+    const period = startDate && endDate ? `${startDate} to ${endDate}` : "Current Period"
+
+    const reports = {
+      pl: extractPLSummary(
+        plData.status === "fulfilled" ? plData.value : null,
+        company,
+        period
+      ),
+      bs: extractBSSummary(
+        bsData.status === "fulfilled" ? bsData.value : null,
+        company,
+        period
+      ),
+      cf: extractCFSummary(
+        cfData.status === "fulfilled" ? cfData.value : null,
+        company,
+        period
+      ),
+      ar: extractARSummary(
+        arData.status === "fulfilled" ? arData.value : null,
+        company
+      ),
+      ap: extractAPSummary(
+        apData.status === "fulfilled" ? apData.value : null,
+        company
+      ),
     }
 
-    // Generate insights using Gemini
-    const insights = await generateFinancialInsights(financialData, company)
+    // Consolidate summaries for AI analysis
+    const optimizedData = consolidateReportSummaries(reports)
+    console.log("[v0] Consolidated data for AI (token-optimized):", optimizedData)
+
+    // Generate insights using Gemini with optimized data
+    const insights = await generateFinancialInsights(JSON.parse(optimizedData), company)
 
     return Response.json({ insights })
   } catch (error) {
